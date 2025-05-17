@@ -7,13 +7,15 @@ console.log(`API-Key: ${TMDB_API_KEY.substring(0, 5)}... (vorhanden)`);
 console.log(`Access Token: ${TMDB_ACCESS_TOKEN.substring(0, 5)}... (vorhanden)`);
 
 const fetchTMDB = async (endpoint) => {
-  console.log(`Anfrage an TMDB: ${TMDB_BASE_URL}${endpoint}`);
+  // Füge den API-Key als Query-Parameter an
+  const url = endpoint.includes('?')
+    ? `${TMDB_BASE_URL}${endpoint}&api_key=${TMDB_API_KEY}`
+    : `${TMDB_BASE_URL}${endpoint}?api_key=${TMDB_API_KEY}`;
+  console.log(`Anfrage an TMDB: ${url}`);
   
   try {
-    // Mit Access Token authentifizieren (Bearer Token)
-    const response = await fetch(`${TMDB_BASE_URL}${endpoint}`, {
+    const response = await fetch(url, {
       headers: {
-        'Authorization': `Bearer ${TMDB_ACCESS_TOKEN}`,
         'Content-Type': 'application/json',
       },
     });

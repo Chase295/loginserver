@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 import LogoutIcon from '@mui/icons-material/Logout';
 import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
+import GroupIcon from '@mui/icons-material/Group';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -64,7 +65,7 @@ const Dashboard = () => {
             Willkommen, {username}! 👋
           </Typography>
 
-          <Grid container spacing={3} justifyContent="center">
+          <Grid container spacing={2} justifyContent="center">
             <Grid item>
               <Button
                 variant="contained"
@@ -79,6 +80,26 @@ const Dashboard = () => {
                 }}
               >
                 Meine Watchlist 📺
+              </Button>
+            </Grid>
+            <Grid item>
+              <Button
+                variant="contained"
+                sx={{
+                  bgcolor: '#00ff9d',
+                  color: '#0a1929',
+                  fontWeight: 'bold',
+                  borderRadius: 3,
+                  px: 4,
+                  py: 2,
+                  fontSize: '1.2rem',
+                  boxShadow: '0 2px 8px #00ff9d33',
+                  '&:hover': { bgcolor: '#00cc7d' }
+                }}
+                startIcon={<GroupIcon />}
+                onClick={() => navigate('/freunde')}
+              >
+                Freunde
               </Button>
             </Grid>
             <Grid item>

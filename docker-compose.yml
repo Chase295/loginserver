@@ -20,7 +20,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/loginapp
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/watchlist
       - JWT_SECRET=your_jwt_secret_key
       - TMDB_API_KEY=baef77dbebea87e3a224ad917d2d5682
       - TMDB_ACCESS_TOKEN=eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJiYWVmNzdkYmViZWE4N2UzYTIyNGFkOTE3ZDJkNTY4MiIsIm5iZiI6MTc0NjY0MDcyNS4wMjMsInN1YiI6IjY4MWI5ZjU1ZTU1MWI4OTBlNGRmOTUwOCIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.giM7pBG4eQbCUZPgiSdVF-FAmvv5FLPCVfzrSBoN1zY
@@ -50,7 +50,7 @@ services:
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=loginapp
+      - POSTGRES_DB=watchlist
     ports:
       - "5432:5432"
     volumes:

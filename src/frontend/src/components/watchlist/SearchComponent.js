@@ -14,6 +14,8 @@ import {
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
+import Autocomplete from '@mui/material/Autocomplete';
+import Chip from '@mui/material/Chip';
 
 const SearchComponent = ({ onAddMovie }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -21,6 +23,14 @@ const SearchComponent = ({ onAddMovie }) => {
   const [error, setError] = useState(null);
   const [results, setResults] = useState([]);
   const [selectedType, setSelectedType] = useState('movie');
+  const [status, setStatus] = useState('watchlist');
+  const [abbruchGrund, setAbbruchGrund] = useState('');
+  const [rating, setRating] = useState(0);
+  const [notes, setNotes] = useState('');
+  const [tags, setTags] = useState([]);
+  const [tagInput, setTagInput] = useState('');
+  const [tagColor, setTagColor] = useState('#2196f3');
+  const [allTags, setAllTags] = useState(() => JSON.parse(localStorage.getItem('allTags') || '[]'));
 
   const handleSearch = async () => {
     if (!searchTerm.trim()) return;
@@ -44,26 +54,63 @@ const SearchComponent = ({ onAddMovie }) => {
     }
   };
 
+  const handleAddTag = (tag) => {
+    if (!tags.some(t => t.label === tag.label)) {
+      setTags([...tags, tag]);
+      if (!allTags.some(t => t.label === tag.label)) {
+        const updated = [...allTags, tag];
+        setAllTags(updated);
+        localStorage.setItem('allTags', JSON.stringify(updated));
+      }
+    }
+  };
+
   const handleAddMovie = (movie) => {
+    // Bereite Tags richtig vor (nur primitive Werte)
+    const cleanTags = tags.map(tag => ({
+      label: String(tag.label || ''),
+      color: String(tag.color || '#000000')
+    }));
+    
     const movieData = {
       title: movie.title || movie.name,
       year: movie.release_date ? new Date(movie.release_date).getFullYear() : null,
-      posterUrl: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : null,
+      poster_url: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : null,
       tmdb_id: movie.id.toString(),
       media_type: movie.media_type || selectedType,
       backdrop_path: movie.backdrop_path,
       overview: movie.overview,
-      vote_average: movie.vote_average
+      vote_average: movie.vote_average,
+      genres: movie.genres || [],
+      status,
+      abbruch_grund: status === 'abgebrochen' ? abbruchGrund : undefined,
+      rating: rating || 0,
+      notes: notes || '',
+      tags: cleanTags,
+      release_date: movie.release_date,
+      first_air_date: movie.first_air_date,
+      number_of_seasons: movie.number_of_seasons,
+      status_de: movie.status_de
     };
     
-    // Sicherstellen, dass keine undefined oder null Werte bleiben
+    // Entferne undefined oder null Werte
     Object.keys(movieData).forEach(key => {
       if (movieData[key] === undefined || movieData[key] === null) {
         delete movieData[key];
       }
     });
     
+    // Debug-Log
+    console.log('Sending movie data:', JSON.stringify(movieData));
+    
     onAddMovie(movieData);
+    
+    // Felder zurücksetzen nach dem Hinzufügen
+    setStatus('watchlist');
+    setRating(0);
+    setNotes('');
+    setTags([]);
+    setAbbruchGrund('');
   };
 
   return (
@@ -201,6 +248,70 @@ const SearchComponent = ({ onAddMovie }) => {
           ))}
         </Grid>
       )}
+
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+        {/* Status-Auswahl */}
+        <Box>
+          <Typography variant="subtitle1">Status</Typography>
+          <select value={status} onChange={e => setStatus(e.target.value)} style={{ padding: 8, borderRadius: 6 }}>
+            <option value="watchlist">Watchlist</option>
+            <option value="gesehen">Gesehen</option>
+            <option value="am_schauen">Am Schauen</option>
+            <option value="abgebrochen">Abgebrochen</option>
+          </select>
+        </Box>
+        {/* Abbruchgrund nur wenn abgebrochen */}
+        {status === 'abgebrochen' && (
+          <TextField label="Abbruch-Grund" value={abbruchGrund} onChange={e => setAbbruchGrund(e.target.value)} fullWidth />
+        )}
+        {/* Bewertung */}
+        <Box>
+          <Typography variant="subtitle1">Bewertung</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {[...Array(10)].map((_, i) => (
+              <span key={i} style={{ cursor: 'pointer', color: i < rating ? '#FFD700' : '#ccc', fontSize: 24 }} onClick={() => setRating(i+1)}>&#9733;</span>
+            ))}
+            <Typography sx={{ ml: 1 }}>{rating}/10</Typography>
+          </Box>
+        </Box>
+        {/* Notizen */}
+        <TextField label="Notizen" value={notes} onChange={e => setNotes(e.target.value)} fullWidth multiline minRows={2} />
+        {/* Tags */}
+        <Box>
+          <Typography variant="subtitle1">Tags</Typography>
+          <Autocomplete
+            multiple
+            freeSolo
+            options={allTags}
+            getOptionLabel={option => option.label || ''}
+            value={tags}
+            onChange={(e, newValue) => setTags(newValue)}
+            onInputChange={(e, value) => setTagInput(value)}
+            renderTags={(value, getTagProps) =>
+              value.map((option, index) => (
+                <Chip
+                  key={option.label}
+                  label={option.label}
+                  style={{ backgroundColor: option.color, color: '#fff', marginRight: 4 }}
+                  {...getTagProps({ index })}
+                />
+              ))
+            }
+            renderInput={params => (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }} ref={params.InputProps.ref}>
+                <input type="color" value={tagColor} onChange={e => setTagColor(e.target.value)} style={{ width: 28, height: 28, border: 'none', background: 'none' }} />
+                <TextField {...params} variant="outlined" placeholder="Tag hinzufügen..." size="small" value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={e => {
+                  if (e.key === 'Enter' && tagInput) {
+                    handleAddTag({ label: tagInput, color: tagColor });
+                    setTagInput('');
+                    e.preventDefault();
+                  }
+                }} />
+              </Box>
+            )}
+          />
+        </Box>
+      </Box>
     </Paper>
   );
 };

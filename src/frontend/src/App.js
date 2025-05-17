@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import Welcome from './components/Welcome';
@@ -7,7 +7,12 @@ import Login from './components/Login';
 import Register from './components/Register';
 import Dashboard from './components/Dashboard';
 import Watchlist from './components/Watchlist';
+import FriendWatchlist from './components/FriendWatchlist';
+import GroupWatchlist from './components/GroupWatchlist';
 import Discover from './components/Discover';
+import Freunde from './components/Freunde';
+import MatchLobby from './components/MatchLobby';
+import ActiveMatchGame from './components/ActiveMatchGame';
 
 const theme = createTheme({
   palette: {
@@ -48,21 +53,32 @@ const theme = createTheme({
   },
 });
 
+// Router-Konfiguration mit Future Flags
+const router = createBrowserRouter([
+  { path: "/", element: <Welcome /> },
+  { path: "/login", element: <Login /> },
+  { path: "/register", element: <Register /> },
+  { path: "/dashboard", element: <Dashboard /> },
+  { path: "/watchlist", element: <Watchlist /> },
+  { path: "/watchlist/:username", element: <FriendWatchlist /> },
+  { path: "/group-watchlist/:groupId", element: <GroupWatchlist /> },
+  { path: "/discover", element: <Discover /> },
+  { path: "/freunde", element: <Freunde /> },
+  { path: "/match-lobby/:matchId", element: <MatchLobby /> },
+  { path: "/match/:matchId/game", element: <ActiveMatchGame /> },
+  { path: "*", element: <Navigate to="/" replace /> }
+], {
+  future: {
+    v7_startTransition: true,
+    v7_relativeSplatPath: true
+  }
+});
+
 function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Router>
-        <Routes>
-          <Route path="/" element={<Welcome />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/watchlist" element={<Watchlist />} />
-          <Route path="/discover" element={<Discover />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Router>
+      <RouterProvider router={router} />
     </ThemeProvider>
   );
 }

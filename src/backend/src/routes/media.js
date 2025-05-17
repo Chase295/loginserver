@@ -138,4 +138,19 @@ router.get('/search', authenticate, async (req, res) => {
   }
 });
 
+// Einzelne Serien-Details (für Watchlist und Discovery)
+router.get('/tv/:id', authenticate, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const details = await tmdbService.getShowDetails(id);
+    if (!details) {
+      return res.status(404).json({ error: 'Serie nicht gefunden' });
+    }
+    res.json(details);
+  } catch (error) {
+    console.error('Fehler beim Laden der Serien-Details:', error);
+    res.status(500).json({ error: 'Interner Serverfehler' });
+  }
+});
+
 module.exports = router; 

@@ -108,3 +108,4 @@ async def verify_token(payload: Dict[str, Any] = Depends(validate_token)):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Token-Validierung fehlgeschlagen: {str(e)}")
+ 
