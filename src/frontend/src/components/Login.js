@@ -32,7 +32,7 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post('http://localhost:8000/api/login', formData);
+      const response = await axios.post('/api/login', formData);
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('username', response.data.username);
       navigate('/dashboard');

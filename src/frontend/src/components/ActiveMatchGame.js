@@ -39,7 +39,7 @@ const ActiveMatchGame = () => {
     if (!matchId || !token) return;
     setLoading(true);
     try {
-      const response = await fetch(`http://localhost:8000/api/match/${matchId}`, {
+      const response = await fetch(`/api/match/${matchId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!response.ok) {

@@ -44,7 +44,7 @@ const GroupWatchlistSettings = ({
     setSuccess(null);
     
     try {
-      const response = await fetch(`http://localhost:8000/api/watchlist/groups/${group.id}/members`, {
+      const response = await fetch(`/api/watchlist/groups/${group.id}/members`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -79,7 +79,7 @@ const GroupWatchlistSettings = ({
     setSuccess(null);
 
     try {
-      const response = await fetch(`http://localhost:8000/api/watchlist/groups/${group.id}/members/${username}`, {
+      const response = await fetch(`/api/watchlist/groups/${group.id}/members/${username}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

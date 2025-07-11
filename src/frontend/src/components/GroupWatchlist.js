@@ -59,16 +59,16 @@ import GroupIcon from '@mui/icons-material/Group';
 import WatchlistHeader from './watchlist/WatchlistHeader';
 import WatchlistDetail from './watchlist/WatchlistDetail';
 import WatchlistFilter from './watchlist/WatchlistFilter';
-import WatchlistSettings from './watchlist/WatchlistSettings';
-import MultiplayerDialog from './watchlist/MultiplayerDialog';
 import GroupWatchlistHeader from './groupWatchlist/GroupWatchlistHeader';
 import GroupWatchlistSettings from './groupWatchlist/GroupWatchlistSettings';
 import GroupWatchlistSearch from './groupWatchlist/GroupWatchlistSearch';
+import InviteFriendsDialog from './InviteFriendsDialog';
 
 const GroupWatchlist = () => {
   const navigate = useNavigate();
   const { groupId } = useParams();
   const [loading, setLoading] = useState(true);
+  const [isFetching, setIsFetching] = useState(false); // NEU: separater Fetching-State
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [movies, setMovies] = useState([]);
@@ -99,6 +99,8 @@ const GroupWatchlist = () => {
   const [multiplayerOpen, setMultiplayerOpen] = useState(false);
   const [privacyFilter, setPrivacyFilter] = useState('all');
   const [friendsWithWatchlist, setFriendsWithWatchlist] = useState([]);
+  const [pendingOpenSettings, setPendingOpenSettings] = useState(false);
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
 
   const username = localStorage.getItem('username');
   const token = localStorage.getItem('token');
@@ -111,7 +113,7 @@ const GroupWatchlist = () => {
       
       console.log('[GroupWatchlist] Loading groups and invites');
       
-      const response = await fetch('http://localhost:8000/api/watchlist/groups', {
+      const response = await fetch('/api/watchlist/groups', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -167,13 +169,19 @@ const GroupWatchlist = () => {
     initializeGroupWatchlist();
   }, [groupId, navigate]);
 
+  useEffect(() => {
+    if (settingsOpen) {
+      loadGroupData();
+    }
+  }, [settingsOpen]);
+
   // Einladung annehmen
   const handleAcceptInvite = async (groupId) => {
     try {
       setLoading(true);
       console.log(`[GroupWatchlist] Accepting invite for group ${groupId}`);
       
-      const response = await fetch(`http://localhost:8000/api/watchlist/groups/${groupId}/invites/accept`, {
+      const response = await fetch(`/api/watchlist/groups/${groupId}/invites/accept`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -202,7 +210,7 @@ const GroupWatchlist = () => {
       setLoading(true);
       console.log(`[GroupWatchlist] Rejecting invite for group ${groupId}`);
       
-      const response = await fetch(`http://localhost:8000/api/watchlist/groups/${groupId}/invites/reject`, {
+      const response = await fetch(`/api/watchlist/groups/${groupId}/invites/reject`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -228,7 +236,8 @@ const GroupWatchlist = () => {
   // Lade Filme der Gruppe
   const fetchMovies = async () => {
     try {
-      const response = await fetch(`http://localhost:8000/api/watchlist/groups/${groupId}/movies`, {
+      setIsFetching(true); // NEU: Nur Fetching-State setzen
+      const response = await fetch(`/api/watchlist/groups/${groupId}/movies`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -245,7 +254,7 @@ const GroupWatchlist = () => {
           
           if (mediaType === 'tv' && movie.tmdb_id) {
             try {
-              const detailsResponse = await fetch(`http://localhost:8000/api/tv/${movie.tmdb_id}`, {
+              const detailsResponse = await fetch(`/api/tv/${movie.tmdb_id}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
               });
               if (detailsResponse.ok) {
@@ -278,12 +287,14 @@ const GroupWatchlist = () => {
       setMovies(moviesWithDetails);
     } catch (err) {
       setError(err.message);
+    } finally {
+      setIsFetching(false); // NEU: Fetching-State zurücksetzen
     }
   };
 
   const fetchUserTags = async () => {
     try {
-      const response = await fetch(`http://localhost:8000/api/watchlist/groups/${groupId}/tags`, {
+      const response = await fetch(`/api/watchlist/groups/${groupId}/tags`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Fehler beim Laden der Tags');
@@ -298,7 +309,7 @@ const GroupWatchlist = () => {
   const checkInviteStatus = async () => {
     try {
       console.log(`[GroupWatchlist] Checking invite status for group ${groupId}`);
-      const response = await fetch(`http://localhost:8000/api/watchlist/groups/${groupId}/membership-status`, {
+      const response = await fetch(`/api/watchlist/groups/${groupId}/membership-status`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -331,7 +342,7 @@ const GroupWatchlist = () => {
 
   const handleDeleteMovie = async (movie) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/watchlist/groups/${groupId}/movies/${movie.id}`, {
+      const response = await fetch(`/api/watchlist/groups/${groupId}/movies/${movie.id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -399,11 +410,11 @@ const GroupWatchlist = () => {
       };
 
       console.log('Sende Update-Request mit Daten:', {
-        url: `http://localhost:8000/api/watchlist/groups/${groupId}/movies/${editId}`,
+        url: `/api/watchlist/groups/${groupId}/movies/${editId}`,
         movieData
       });
 
-      const response = await fetch(`http://localhost:8000/api/watchlist/groups/${groupId}/movies/${editId}`, {
+      const response = await fetch(`/api/watchlist/groups/${groupId}/movies/${editId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -481,7 +492,7 @@ const GroupWatchlist = () => {
   const loadFriends = async () => {
     try {
       console.log('[GroupWatchlist] Loading friends list');
-      const response = await fetch('http://localhost:8000/api/friends/list', {
+      const response = await fetch('/api/friends/list', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Fehler beim Laden der Freunde');
@@ -499,7 +510,7 @@ const GroupWatchlist = () => {
     try {
       console.log(`[GroupWatchlist] Inviting member ${username} to group ${groupId}`);
       setLoading(true);
-      const response = await fetch(`http://localhost:8000/api/watchlist/groups/${groupId}/members`, {
+      const response = await fetch(`/api/watchlist/groups/${groupId}/members`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -533,7 +544,7 @@ const GroupWatchlist = () => {
       console.log(`[GroupWatchlist] Loading group data for group ${groupId}`);
       
       // Prüfe zuerst den Mitgliedschaftsstatus
-      const statusResponse = await fetch(`http://localhost:8000/api/watchlist/groups/${groupId}/membership-status`, {
+      const statusResponse = await fetch(`/api/watchlist/groups/${groupId}/membership-status`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -564,10 +575,10 @@ const GroupWatchlist = () => {
 
       // Wenn Mitglied, lade Gruppeninformationen
       const [groupResponse, membersResponse] = await Promise.all([
-        fetch(`http://localhost:8000/api/watchlist/groups/${groupId}`, {
+        fetch(`/api/watchlist/groups/${groupId}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
-        fetch(`http://localhost:8000/api/watchlist/groups/${groupId}/members`, {
+        fetch(`/api/watchlist/groups/${groupId}/members`, {
           headers: { 'Authorization': `Bearer ${token}` }
         })
       ]);
@@ -582,11 +593,10 @@ const GroupWatchlist = () => {
         groupResponse.json(),
         membersResponse.json()
       ]);
-      
-      console.log('[GroupWatchlist] Group data loaded:', groupData);
+      console.log('[GroupWatchlist] API groupData:', groupData);
       setGroup(groupData);
+      console.log('[GroupWatchlist] setGroup:', groupData);
       setMembers(membersData);
-      
       setLoading(false);
     } catch (err) {
       console.error('[GroupWatchlist] Error in loadGroupData:', err);
@@ -594,6 +604,39 @@ const GroupWatchlist = () => {
       setLoading(false);
     }
   };
+
+  const handleOpenSettings = async () => {
+    setPendingOpenSettings(true);
+    await loadGroupData();
+  };
+
+  useEffect(() => {
+    if (pendingOpenSettings) {
+      console.log('[GroupWatchlist] useEffect pendingOpenSettings:', { group, groupId: group?.id });
+      if (group && group.id) {
+        setSettingsOpen(true);
+        setPendingOpenSettings(false);
+      } else {
+        // Retry-Mechanismus: Versuche es nach kurzer Zeit erneut (max. 5 Versuche)
+        let retryCount = 0;
+        const maxRetries = 5;
+        const retryDelay = 200; // ms
+        const retry = () => {
+          retryCount++;
+          if (group && group.id) {
+            setSettingsOpen(true);
+            setPendingOpenSettings(false);
+          } else if (retryCount < maxRetries) {
+            setTimeout(retry, retryDelay);
+          } else {
+            console.warn('[GroupWatchlist] group bleibt null nach mehreren Versuchen!');
+            setPendingOpenSettings(false);
+          }
+        };
+        setTimeout(retry, retryDelay);
+      }
+    }
+  }, [pendingOpenSettings, group]);
 
   if (loading) {
     return (
@@ -711,8 +754,9 @@ const GroupWatchlist = () => {
           groupName={group?.name}
           username={username}
           navigate={navigate}
-          setSettingsOpen={setSettingsOpen}
+          setSettingsOpen={handleOpenSettings}
           groupId={groupId}
+          onInviteFriends={() => setInviteDialogOpen(true)}
         />
 
         <GroupWatchlistSearch
@@ -834,13 +878,21 @@ const GroupWatchlist = () => {
           setPrivacyFilter={setPrivacyFilter}
         />
 
-        <GroupWatchlistSettings
-          open={settingsOpen}
-          onClose={() => setSettingsOpen(false)}
-          group={group}
-          members={members}
-          onSave={loadGroups}
-          isAdmin={group?.creator_username === username}
+        {/* Zeige den Dialog nur, wenn group und group.id vorhanden sind */}
+        {group && group.id && (
+          <GroupWatchlistSettings
+            open={settingsOpen}
+            onClose={() => setSettingsOpen(false)}
+            group={group}
+            members={members}
+            onSave={loadGroups}
+            isAdmin={group?.creator_username === username}
+          />
+        )}
+        <InviteFriendsDialog
+          open={inviteDialogOpen}
+          onClose={() => setInviteDialogOpen(false)}
+          groupId={groupId}
         />
       </Container>
     </Box>

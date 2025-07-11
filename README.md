@@ -66,7 +66,151 @@ loginv1/
 
 ## Lizenz
 
-MIT 
+MIT
+
+---
+
+## Automated Deployment via GitHub Actions and GHCR
+
+This project is configured for automated Docker image builds and publishing to the GitHub Container Registry (GHCR) using GitHub Actions. The provided `docker-compose.yaml` file allows you to run the application using these pre-built, publicly accessible images without needing to build them locally or log in to Docker.
+
+### 1. Overview
+
+- **GitHub Actions Workflow (`.github/workflows/docker-publish.yml`):**
+    - Automatically triggers on every push to the `main` branch.
+    - Builds Docker images for `nginx`, `frontend`, `backend`, and `testapi`.
+    - Pushes these images to GHCR, tagged with `latest` and the commit SHA.
+    - Images are stored at `ghcr.io/YOUR_GITHUB_USERNAME_LOWERCASE/SERVICE_NAME:tag`.
+
+- **Docker Images on GHCR:**
+    - `ghcr.io/YOUR_GITHUB_USERNAME_LOWERCASE/nginx:latest`
+    - `ghcr.io/YOUR_GITHUB_USERNAME_LOWERCASE/frontend:latest`
+    - `ghcr.io/YOUR_GITHUB_USERNAME_LOWERCASE/backend:latest`
+    - `ghcr.io/YOUR_GITHUB_USERNAME_LOWERCASE/testapi:latest`
+    (You will need to replace `YOUR_GITHUB_USERNAME_LOWERCASE` with your actual GitHub username in lowercase).
+
+- **`docker-compose.yaml`:**
+    - Uses the public images from GHCR.
+    - Simplifies deployment to a single `docker compose up -d` command.
+
+### 2. One-Time Setup: GitHub Personal Access Token (PAT)
+
+For the GitHub Actions workflow to publish images to your GHCR, it needs permission. You must create a Personal Access Token (PAT) and add it as a secret to your GitHub repository.
+
+**A. Create a Personal Access Token (PAT):**
+
+1.  Go to your GitHub settings:
+    *   Click your profile picture in the top-right corner.
+    *   Go to **Settings**.
+2.  Navigate to Developer settings:
+    *   In the left sidebar, scroll down and click **Developer settings**.
+3.  Go to Personal access tokens:
+    *   Click **Personal access tokens**, then **Tokens (classic)**.
+    *   *Alternatively, you can try Fine-grained tokens, but Tokens (classic) are simpler for this scope.*
+4.  Generate a new token:
+    *   Click **Generate new token** (and then **Generate new token (classic)** if prompted).
+5.  Configure the token:
+    *   **Note:** Give your token a descriptive name (e.g., `GHCR_PUBLISH_PACKAGES`).
+    *   **Expiration:** Choose an appropriate expiration period.
+    *   **Scopes:** Select the following scopes:
+        *   `write:packages` (Crucial: Allows uploading packages/Docker images to GHCR)
+        *   `read:packages` (Usually included with `write:packages`, good to have for completeness)
+        *   It's good practice to grant only the necessary permissions.
+6.  Generate token:
+    *   Click **Generate token**.
+7.  **Copy the token immediately!** This is your only chance to see it. Store it securely for the next step.
+
+**B. Add the PAT as a GitHub Repository Secret:**
+
+1.  Go to your GitHub repository.
+2.  Click the **Settings** tab.
+3.  In the left sidebar, under "Security", click **Secrets and variables**, then **Actions**.
+4.  Click **New repository secret**.
+5.  **Name:** Enter `GH_PAT` (this exact name is used in the `docker-publish.yml` workflow).
+6.  **Secret/Value:** Paste the PAT you copied in the previous step.
+7.  Click **Add secret**.
+
+Once this secret is added, the GitHub Actions workflow will have the necessary permissions to push images to GHCR. The first push to `main` after adding the workflow file and this secret will trigger the image building and publishing process.
+
+### 3. Ensure Public Package Visibility on GHCR
+
+After the GitHub Action successfully runs for the first time and pushes the packages (images) to GHCR, you need to ensure these packages are **publicly visible**.
+
+1.  Go to your GitHub profile page (not the repository).
+2.  Click on the **Packages** tab.
+3.  You should see the newly published packages (e.g., `nginx`, `frontend`, `backend`, `testapi`).
+4.  For each package:
+    *   Click on the package name.
+    *   On the package's page, find **Package settings** (usually on the right sidebar).
+    *   Under "Danger Zone" or "Visibility settings", ensure the package visibility is set to **Public**. If it's private, change it to public.
+
+This makes the images pullable by anyone without requiring a `docker login` to GHCR.
+
+### 4. Running the Application with `docker-compose.yaml`
+
+1.  **Clone the Repository (if you haven't already):**
+    ```bash
+    git clone https://github.com/YOUR_GITHUB_USERNAME/YOUR_REPOSITORY_NAME.git
+    cd YOUR_REPOSITORY_NAME
+    ```
+
+2.  **Prepare `docker-compose.yaml`:**
+    *   Open the `docker-compose.yaml` file.
+    *   Replace all instances of `YOUR_GITHUB_USERNAME_LOWERCASE` with your actual GitHub username (in lowercase letters).
+    *   **Crucially, replace the `!!!YOUR_STRONG_JWT_SECRET_HERE!!!` placeholders** for the `JWT_SECRET` in both the `backend` and `testapi` services with the *same, strong, unique secret key*.
+    *   Optionally, change the `POSTGRES_PASSWORD` for the `db` service from `postgres_CHANGE_ME` to a more secure password. Ensure the `DATABASE_URL` in the `backend` service reflects this if you change the user/password (though the default setup uses `postgres:postgres_CHANGE_ME`).
+
+3.  **Start the Application:**
+    ```bash
+    docker compose up -d
+    ```
+    (Note: some systems might still use `docker-compose` instead of `docker compose`)
+
+    This command will:
+    *   Pull the pre-built public images from GHCR for `nginx`, `frontend`, `backend`, and `testapi`.
+    *   Start all services in detached mode.
+
+4.  **Accessing the Application:**
+    *   Once the containers are running (check with `docker compose ps`), open your web browser and navigate to `http://localhost`.
+    *   Nginx will serve the frontend, and API calls will be routed to the backend.
+
+### 5. Environment Variables & Configuration
+
+-   **`JWT_SECRET`**: Must be set in `docker-compose.yaml` for `backend` and `testapi` services.
+-   **`TMDB_API_KEY` & `TMDB_ACCESS_TOKEN`**: These are pre-filled in `docker-compose.yaml` as per your earlier provision but ensure they are correct.
+-   **`CORS_ALLOWED_ORIGINS`**: Configured in `docker-compose.yaml` for the `backend` service. The default `http://localhost` should work when accessing Nginx on port 80 of your host.
+-   **Database Credentials**: The `db` service uses `postgres` as the user and `postgres_CHANGE_ME` as the password by default. The `backend`'s `DATABASE_URL` is configured to use these. Change `POSTGRES_PASSWORD` for better security.
+
+### 6. Stopping the Application
+
+-   To stop all services:
+    ```bash
+    docker compose down
+    ```
+-   To stop and remove volumes (e.g., to reset the database):
+    ```bash
+    docker compose down -v
+    ```
+
+### 7. Troubleshooting
+
+-   **Image Not Found:**
+    *   Ensure the GitHub Actions workflow has run successfully after your latest push to `main`.
+    *   Verify the image names in `docker-compose.yaml` exactly match those on GHCR (including your lowercase GitHub username).
+    *   Check that the packages on GHCR are set to **public visibility**.
+-   **Application Errors:**
+    *   Check container logs:
+        ```bash
+        docker compose logs nginx
+        docker compose logs frontend
+        docker compose logs backend
+        docker compose logs db
+        docker compose logs testapi
+        ```
+-   **PAT Issues:**
+    *   If GitHub Actions fail with authentication errors when pushing to GHCR, double-check your `GH_PAT` secret in the repository settings and ensure the PAT has the `write:packages` scope.
+
+---
 
 # Watchlist & Friends App
 

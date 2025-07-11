@@ -99,7 +99,7 @@ const Watchlist = () => {
   const fetchMovies = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:8000/api/watchlist/movies', {
+      const response = await fetch('/api/watchlist/movies', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -117,7 +117,7 @@ const Watchlist = () => {
           
           if (mediaType === 'tv' && movie.tmdb_id) {
             try {
-              const detailsResponse = await fetch(`http://localhost:8000/api/tv/${movie.tmdb_id}`, {
+              const detailsResponse = await fetch(`/api/tv/${movie.tmdb_id}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
               });
               if (detailsResponse.ok) {
@@ -163,7 +163,7 @@ const Watchlist = () => {
     }
     const initializeWatchlist = async () => {
       try {
-        await fetch('http://localhost:8000/api/watchlist', {
+        await fetch('/api/watchlist', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -195,7 +195,7 @@ const Watchlist = () => {
     try {
       const token = localStorage.getItem('token');
       // API-Request zum Löschen
-      const response = await fetch(`http://localhost:8000/api/watchlist/movies/${movie.id}`, {
+      const response = await fetch(`/api/watchlist/movies/${movie.id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -267,7 +267,7 @@ const Watchlist = () => {
       const safeData = JSON.parse(JSON.stringify(movieData));
       console.log('Speichere Daten:', safeData);
       
-      const response = await fetch(`http://localhost:8000/api/watchlist/movies/${editId}`, {
+      const response = await fetch(`/api/watchlist/movies/${editId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -310,7 +310,7 @@ const Watchlist = () => {
     try {
       const token = localStorage.getItem('token');
       if (!token) return;
-      const response = await fetch('http://localhost:8000/api/user/tags', {
+      const response = await fetch('/api/user/tags', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -367,7 +367,7 @@ const Watchlist = () => {
     setMultiplayerOpen(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:8000/api/friends/list', {
+      const res = await fetch('/api/friends/list', {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -387,7 +387,7 @@ const Watchlist = () => {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch('http://localhost:8000/api/watchlist/movies', {
+      const response = await fetch('/api/watchlist/movies', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -431,7 +431,7 @@ const Watchlist = () => {
         console.log('Kein Token gefunden');
         return;
       }
-      const res = await fetch('http://localhost:8000/api/watchlist/settings', {
+      const res = await fetch('/api/watchlist/settings', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -463,7 +463,7 @@ const Watchlist = () => {
         }
         
         // Zuerst sicherstellen, dass die Watchlist existiert
-        await fetch('http://localhost:8000/api/watchlist', {
+        await fetch('/api/watchlist', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -531,7 +531,7 @@ const Watchlist = () => {
         });
 
         // Speichere im Backend
-        await fetch(`http://localhost:8000/api/watchlist/movies/${movie.id}`, {
+        await fetch(`/api/watchlist/movies/${movie.id}`, {
           method: 'PUT',
           headers: {
             'Authorization': `Bearer ${token}`,

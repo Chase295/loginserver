@@ -68,7 +68,7 @@ const MultiplayerDialog = ({
     try {
       console.log('[MultiplayerDialog] Loading group watchlists');
       
-      const response = await fetch('http://localhost:8000/api/watchlist/groups', {
+      const response = await fetch('/api/watchlist/groups', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -107,7 +107,7 @@ const MultiplayerDialog = ({
     }
     setIsCreatingGroup(true);
     try {
-      const response = await fetch('http://localhost:8000/api/watchlist/groups', {
+      const response = await fetch('/api/watchlist/groups', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -129,7 +129,7 @@ const MultiplayerDialog = ({
   // Gruppe löschen
   const deleteGroupWatchlist = async (groupId) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/watchlist/groups/${groupId}`, {
+      const response = await fetch(`/api/watchlist/groups/${groupId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -157,7 +157,7 @@ const MultiplayerDialog = ({
       await Promise.all(friendsWithWatchlist.map(async (friend) => {
         try {
           const uname = friend.friend_username || friend.username;
-          const res = await fetch(`http://localhost:8000/api/watchlist/visibility/${uname}`, {
+          const res = await fetch(`/api/watchlist/visibility/${uname}`, {
             headers: { Authorization: `Bearer ${token}` }
           });
           if (res.ok) {
@@ -200,7 +200,7 @@ const MultiplayerDialog = ({
   const loadMatchData = async () => {
     try {
       setError(null);
-      const sentInvitesResponse = await fetch('http://localhost:8000/api/match/invites/sent', {
+      const sentInvitesResponse = await fetch('/api/match/invites/sent', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -211,7 +211,7 @@ const MultiplayerDialog = ({
       const sentInvitesData = await sentInvitesResponse.json();
       setSentInvites(sentInvitesData);
 
-      const receivedInvitesResponse = await fetch('http://localhost:8000/api/match/invites/received', {
+      const receivedInvitesResponse = await fetch('/api/match/invites/received', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -222,7 +222,7 @@ const MultiplayerDialog = ({
       const receivedInvitesData = await receivedInvitesResponse.json();
       setReceivedInvites(receivedInvitesData);
 
-      const activeMatchesResponse = await fetch('http://localhost:8000/api/match/active', {
+      const activeMatchesResponse = await fetch('/api/match/active', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -248,7 +248,7 @@ const MultiplayerDialog = ({
       }
 
       setError(null);
-      const response = await fetch('http://localhost:8000/api/match/invite', {
+      const response = await fetch('/api/match/invite', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -272,7 +272,7 @@ const MultiplayerDialog = ({
   const cancelMatchInvite = async (invitationId) => {
     try {
       setError(null);
-      const response = await fetch('http://localhost:8000/api/match/invite/cancel', {
+      const response = await fetch('/api/match/invite/cancel', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -310,7 +310,7 @@ const MultiplayerDialog = ({
   const respondToInvite = async (invitationId, accept) => {
     try {
       setError(null);
-      const response = await fetch('http://localhost:8000/api/match/invite/respond', {
+      const response = await fetch('/api/match/invite/respond', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -367,7 +367,7 @@ const MultiplayerDialog = ({
   const deleteMatch = async (matchId) => {
     try {
       setError(null);
-      const response = await fetch(`http://localhost:8000/api/match/${matchId}`, {
+      const response = await fetch(`/api/match/${matchId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -424,7 +424,7 @@ const MultiplayerDialog = ({
       setError(null);
       console.log(`[MultiplayerDialog] Accepting group invite for group ${groupId}`);
       
-      const response = await fetch(`http://localhost:8000/api/watchlist/groups/${groupId}/invites/accept`, {
+      const response = await fetch(`/api/watchlist/groups/${groupId}/invites/accept`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -464,7 +464,7 @@ const MultiplayerDialog = ({
       setError(null);
       console.log(`[MultiplayerDialog] Rejecting group invite for group ${groupId}`);
       
-      const response = await fetch(`http://localhost:8000/api/watchlist/groups/${groupId}/invites/reject`, {
+      const response = await fetch(`/api/watchlist/groups/${groupId}/invites/reject`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

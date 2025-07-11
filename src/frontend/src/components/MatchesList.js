@@ -45,17 +45,17 @@ const MatchesList = () => {
       }
       
       // Aktive Matches laden
-      const matchesResponse = await axios.get(`${API_URL}/api/match/active`, {
+      const matchesResponse = await axios.get(`${API_URL ? API_URL + '/api/match/active' : '/api/match/active'}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
       // Empfangene Einladungen laden
-      const invitationsResponse = await axios.get(`${API_URL}/api/match/invites/received`, {
+      const invitationsResponse = await axios.get(`${API_URL ? API_URL + '/api/match/invites/received' : '/api/match/invites/received'}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
       // Gesendete Einladungen laden
-      const sentInvitationsResponse = await axios.get(`${API_URL}/api/match/invites/sent`, {
+      const sentInvitationsResponse = await axios.get(`${API_URL ? API_URL + '/api/match/invites/sent' : '/api/match/invites/sent'}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -81,7 +81,7 @@ const MatchesList = () => {
       const token = localStorage.getItem('token');
       
       const response = await axios.post(
-        `${API_URL}/api/match/invite/respond`,
+        `${API_URL ? API_URL + '/api/match/invite/respond' : '/api/match/invite/respond'}`,
         {
           invitation_id: invitationId,
           accept: true
@@ -111,7 +111,7 @@ const MatchesList = () => {
       const token = localStorage.getItem('token');
       
       await axios.post(
-        `${API_URL}/api/match/invite/respond`,
+        `${API_URL ? API_URL + '/api/match/invite/respond' : '/api/match/invite/respond'}`,
         {
           invitation_id: invitationId,
           accept: false
@@ -136,7 +136,7 @@ const MatchesList = () => {
       const token = localStorage.getItem('token');
       
       await axios.post(
-        `${API_URL}/api/match/invite/cancel`,
+        `${API_URL ? API_URL + '/api/match/invite/cancel' : '/api/match/invite/cancel'}`,
         {
           invitation_id: invitationId
         },
@@ -159,7 +159,7 @@ const MatchesList = () => {
       setError(null);
       const token = localStorage.getItem('token');
       
-      await axios.delete(`${API_URL}/api/match/${matchId}`, {
+      await axios.delete(`${API_URL ? API_URL + '/api/match/' + matchId : '/api/match/' + matchId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       

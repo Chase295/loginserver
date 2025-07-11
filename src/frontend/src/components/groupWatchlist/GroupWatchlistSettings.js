@@ -33,6 +33,9 @@ import { useNavigate } from 'react-router-dom';
 
 const GroupWatchlistSettings = ({ open, onClose, group, members, onSave, isAdmin }) => {
   const navigate = useNavigate();
+  // Debug-Logging für Props
+  console.log('[GroupWatchlistSettings] group:', group);
+  console.log('[GroupWatchlistSettings] open:', open);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -121,6 +124,7 @@ const GroupWatchlistSettings = ({ open, onClose, group, members, onSave, isAdmin
   };
 
   useEffect(() => {
+    console.log('[GroupWatchlistSettings] useEffect ausgeführt', { open, groupId: group?.id, members });
     loadFriendsAndInvites();
   }, [open, group?.id, members]);
 

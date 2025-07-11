@@ -9,13 +9,15 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ExploreIcon from '@mui/icons-material/Explore';
 import SettingsIcon from '@mui/icons-material/Settings';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
 
 const GroupWatchlistHeader = ({
   groupName,
   username,
   navigate,
   setSettingsOpen,
-  groupId
+  groupId,
+  onInviteFriends // neue Prop
 }) => {
   return (
     <>
@@ -78,7 +80,20 @@ const GroupWatchlistHeader = ({
           >
             <SettingsIcon />
           </Button>
-          
+          <Button
+            onClick={onInviteFriends}
+            sx={{
+              color: 'rgba(255, 255, 255, 0.7)',
+              mr: 1,
+              '&:hover': {
+                backgroundColor: 'rgba(0, 255, 157, 0.1)',
+                color: '#00ff9d'
+              }
+            }}
+            startIcon={<PersonAddIcon />}
+          >
+            Freunde einladen
+          </Button>
           <Button
             variant="outlined"
             startIcon={<ExploreIcon />}

@@ -572,10 +572,10 @@ router.post('/:groupId/movies', authenticateToken, async (req, res) => {
         // Film zur Gruppe hinzufügen
         const result = await client.query(
             `INSERT INTO movies (
-                group_id, title, year, poster_url, tmdb_id, media_type, 
+                group_id, watchlist_id, title, year, poster_url, tmdb_id, media_type, 
                 backdrop_path, overview, vote_average, genres, status, 
                 abbruch_grund, rating, notes, tags
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) 
+            ) VALUES ($1, NULL, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) 
             RETURNING *`,
             [
                 groupId,

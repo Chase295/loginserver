@@ -17,8 +17,6 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import IconButton from '@mui/material/IconButton';
 import { useNavigate } from 'react-router-dom';
 
-const BACKEND_URL = 'http://localhost:8000';
-
 const Freunde = () => {
   const [users, setUsers] = useState([]);
   const [requests, setRequests] = useState([]);
@@ -49,7 +47,7 @@ const Freunde = () => {
       setError(null);
       try {
         // Hole alle User außer sich selbst
-        const res = await axios.get(`${BACKEND_URL}/api/userlist`, {
+        const res = await axios.get('/api/userlist', {
           headers: { Authorization: `Bearer ${token}` }
         });
         // Filtere User, die bereits Freunde sind
@@ -71,7 +69,7 @@ const Freunde = () => {
   useEffect(() => {
     const fetchRequests = async () => {
       try {
-        const res = await axios.get(`${BACKEND_URL}/api/friends/requests`, {
+        const res = await axios.get('/api/friends/requests', {
           headers: { Authorization: `Bearer ${token}` }
         });
         setRequests(res.data);
@@ -85,7 +83,7 @@ const Freunde = () => {
   // Anfrage senden
   const sendRequest = async (receiver_username) => {
     try {
-      await axios.post(`${BACKEND_URL}/api/friends/request`, { receiver_username }, {
+      await axios.post('/api/friends/request', { receiver_username }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setSent([...sent, receiver_username]);
@@ -100,7 +98,7 @@ const Freunde = () => {
   // Anfrage annehmen/ablehnen
   const handleRespond = async (request_id, accept) => {
     try {
-      await axios.post(`${BACKEND_URL}/api/friends/respond`, { request_id, accept }, {
+      await axios.post('/api/friends/respond', { request_id, accept }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setRequests(requests.filter(r => r.id !== request_id));
@@ -116,7 +114,7 @@ const Freunde = () => {
   useEffect(() => {
     const fetchFriends = async () => {
       try {
-        const res = await axios.get(`${BACKEND_URL}/api/friends/list`, {
+        const res = await axios.get('/api/friends/list', {
           headers: { Authorization: `Bearer ${token}` }
         });
         setFriends(res.data);
@@ -307,7 +305,7 @@ const Freunde = () => {
               setEditLoading(true);
               const token = localStorage.getItem('token');
               try {
-                const res = await fetch(`${BACKEND_URL}/api/friends/delete`, {
+                const res = await fetch('/api/friends/delete', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                   body: JSON.stringify({ friend_id: editFriend.id })
@@ -318,7 +316,7 @@ const Freunde = () => {
                 setSuccess('Freund gelöscht!');
                 setTimeout(() => setSuccess(null), 2000);
                 // Freunde neu laden
-                const res2 = await fetch(`${BACKEND_URL}/api/friends/list`, { headers: { Authorization: `Bearer ${token}` } });
+                const res2 = await fetch('/api/friends/list', { headers: { Authorization: `Bearer ${token}` } });
                 setFriends(await res2.json());
               } catch (e) {
                 setEditLoading(false);
@@ -337,7 +335,7 @@ const Freunde = () => {
             onClick={async () => {
               setEditLoading(true);
               const token = localStorage.getItem('token');
-              await fetch(`${BACKEND_URL}/api/friends/level`, {
+              await fetch('/api/friends/level', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify({ friend_id: editFriend.id, friendship_level: editLevel })
@@ -345,7 +343,7 @@ const Freunde = () => {
               setEditLoading(false);
               setEditFriend(null);
               // Freunde neu laden
-              const res = await fetch(`${BACKEND_URL}/api/friends/list`, { headers: { Authorization: `Bearer ${token}` } });
+              const res = await fetch('/api/friends/list', { headers: { Authorization: `Bearer ${token}` } });
               setFriends(await res.json());
             }}
             disabled={editLoading || !editLevel}

@@ -59,7 +59,7 @@ const FriendWatchlist = () => {
     const fetchFriendTags = async () => {
       try {
         const token = localStorage.getItem('token');
-        const res = await fetch(`http://localhost:8000/api/user/${username}/tags`, {
+        const res = await fetch(`/api/user/${username}/tags`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (res.ok) {
@@ -86,7 +86,7 @@ const FriendWatchlist = () => {
           return;
         }
 
-        const res = await fetch(`http://localhost:8000/api/watchlist/user/${username}`, {
+        const res = await fetch(`/api/watchlist/user/${username}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
 

@@ -125,10 +125,10 @@ const Discover = () => {
       const endpoint = displayMode === 'trending' ? 'trending' : 'upcoming';
       // Beide Typen parallel laden
       const [moviesRes, tvRes] = await Promise.all([
-        fetch(`http://localhost:8000/api/${endpoint}?type=movie`, {
+        fetch(`/api/${endpoint}?type=movie`, {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
-        fetch(`http://localhost:8000/api/${endpoint}?type=tv`, {
+        fetch(`/api/${endpoint}?type=tv`, {
           headers: { 'Authorization': `Bearer ${token}` }
         })
       ]);
@@ -142,7 +142,7 @@ const Discover = () => {
       const tvWithDetails = await Promise.all(
         (tvData.results || []).map(async (item) => {
           try {
-            const detailsRes = await fetch(`http://localhost:8000/api/tv/${item.id}`, {
+            const detailsRes = await fetch(`/api/tv/${item.id}`, {
               headers: { 'Authorization': `Bearer ${token}` }
             });
             if (detailsRes.ok) {
@@ -193,10 +193,10 @@ const Discover = () => {
     try {
       const token = localStorage.getItem('token');
       const [moviesRes, tvRes] = await Promise.all([
-        fetch(`http://localhost:8000/api/search?q=${encodeURIComponent(searchTerm)}&type=movie`, {
+        fetch(`/api/search?q=${encodeURIComponent(searchTerm)}&type=movie`, {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
-        fetch(`http://localhost:8000/api/search?q=${encodeURIComponent(searchTerm)}&type=tv`, {
+        fetch(`/api/search?q=${encodeURIComponent(searchTerm)}&type=tv`, {
           headers: { 'Authorization': `Bearer ${token}` }
         })
       ]);
@@ -276,10 +276,9 @@ const Discover = () => {
       });
       const safeData = JSON.parse(JSON.stringify(movieData));
       let response;
-      if (isEdit && editId) {
-        // Update
-        response = await fetch(`http://localhost:8000/api/watchlist/movies/${editId}`, {
-          method: 'PUT',
+      if (groupId) {
+        response = await fetch(`/api/watchlist/groups/${groupId}/movies`, {
+          method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -287,8 +286,7 @@ const Discover = () => {
           body: JSON.stringify(safeData)
         });
       } else {
-        // Neu anlegen
-        response = await fetch('http://localhost:8000/api/watchlist/movies', {
+        response = await fetch('/api/watchlist/movies', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -301,9 +299,8 @@ const Discover = () => {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || 'Fehler beim Hinzufügen zur Watchlist');
       }
-      setSuccess(`"${movieData.title}" wurde ${isEdit ? 'aktualisiert' : 'zur Watchlist hinzugefügt'}.`);
+      setSuccess(`"${movieData.title}" wurde zur Watchlist${groupId ? ' der Gruppe' : ''} hinzugefügt.`);
       setTimeout(() => { setSuccess(null); }, 3000);
-      handleCloseDetail();
       setStatus('watchlist');
       setRating(0);
       setNotes('');
@@ -327,7 +324,7 @@ const Discover = () => {
       // Wenn wir in einer Gruppen-Discovery sind
       if (groupId) {
         // Hole die Gruppen-Tags
-        const groupResponse = await fetch(`http://localhost:8000/api/watchlist/groups/${groupId}/movies`, {
+        const groupResponse = await fetch(`/api/watchlist/groups/${groupId}/movies`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -349,7 +346,7 @@ const Discover = () => {
         }
       } else {
         // Hole die privaten Tags
-        const response = await fetch('http://localhost:8000/api/user/tags', {
+        const response = await fetch('/api/user/tags', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -391,7 +388,7 @@ const Discover = () => {
       if (groupId) {
         // Prüfe zuerst in der Gruppen-Watchlist
         console.log('Suche Film in Gruppen-Watchlist:', { groupId, tmdbId, mediaType: item.media_type });
-        const groupResponse = await fetch(`http://localhost:8000/api/watchlist/groups/${groupId}/movies`, {
+        const groupResponse = await fetch(`/api/watchlist/groups/${groupId}/movies`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -418,7 +415,7 @@ const Discover = () => {
         }
       } else {
         // Prüfe in der persönlichen Watchlist
-        response = await fetch(`http://localhost:8000/api/watchlist/movie/${tmdbId}/${item.media_type}`, {
+        response = await fetch(`/api/watchlist/movie/${tmdbId}/${item.media_type}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -551,8 +548,8 @@ const Discover = () => {
 
       // Unterscheide zwischen Gruppen- und persönlicher Watchlist
       const endpoint = groupId 
-        ? `http://localhost:8000/api/watchlist/groups/${groupId}/movies`
-        : 'http://localhost:8000/api/watchlist/movies';
+        ? `/api/watchlist/groups/${groupId}/movies`
+        : '/api/watchlist/movies';
 
       response = await fetch(endpoint, {
         method: isEdit ? 'PUT' : 'POST',  // Korrigiere die Methode basierend auf isEdit

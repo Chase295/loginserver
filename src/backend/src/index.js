@@ -7,7 +7,24 @@ const jwt = require('jsonwebtoken');
 const app = express();
 const port = process.env.PORT || 8000;
 
-app.use(cors());
+// More specific CORS configuration
+const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || 'http://localhost:3000,http://127.0.0.1:3000,https://watch.chase295.de').split(',');
+console.log("Allowed CORS origins:", allowedOrigins);
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = 'The CORS policy for this site does not ' +
+                  'allow access from the specified Origin: ' + origin;
+      console.warn(msg); // Log the warning
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
+  credentials: true // If you need to send cookies or authorization headers
+}));
 
 // Verbesserte Fehlerbehandlung für JSON-Parsing
 app.use((err, req, res, next) => {
@@ -186,6 +203,37 @@ const initDb = async () => {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(match_id, player_id, movie_id)
       );
+
+      CREATE TABLE IF NOT EXISTS group_watchlists (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        creator_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS group_members (
+        id SERIAL PRIMARY KEY,
+        group_id INTEGER REFERENCES group_watchlists(id) ON DELETE CASCADE,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        status VARCHAR(20) DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(group_id, user_id)
+      );
+
+      -- Spalte group_id für Gruppen-Watchlists
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='movies' AND column_name='group_id') THEN
+          ALTER TABLE movies ADD COLUMN group_id INTEGER REFERENCES group_watchlists(id) ON DELETE CASCADE;
+        END IF;
+      END $$;
+
+      -- Spalte watchlist_visibility für Sichtbarkeit der Watchlist
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='watchlists' AND column_name='watchlist_visibility') THEN
+          ALTER TABLE watchlists ADD COLUMN watchlist_visibility VARCHAR(20) DEFAULT 'friends';
+        END IF;
+      END $$;
     `);
     console.log('Datenbank initialisiert');
   } catch (err) {

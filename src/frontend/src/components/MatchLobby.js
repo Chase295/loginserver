@@ -66,14 +66,14 @@ const MatchLobby = () => {
   const loadUserWatchlistAndTags = useCallback(async () => {
     if (!token) return;
     try {
-      const wlResponse = await fetch('http://localhost:8000/api/watchlist/movies', {
+      const wlResponse = await fetch('/api/watchlist/movies', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!wlResponse.ok) throw new Error('Fehler beim Laden der Watchlist');
       const wlData = await wlResponse.json();
       setUserWatchlist(wlData);
 
-      const tagsResponse = await fetch('http://localhost:8000/api/user/tags', {
+      const tagsResponse = await fetch('/api/user/tags', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!tagsResponse.ok) throw new Error('Fehler beim Laden der Tags');
@@ -130,7 +130,7 @@ const MatchLobby = () => {
     if (!matchId || !token) return;
     setLoading(true);
     try {
-      const response = await fetch(`http://localhost:8000/api/match/${matchId}`, {
+      const response = await fetch(`/api/match/${matchId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!response.ok) {
@@ -188,7 +188,7 @@ const MatchLobby = () => {
 
   const updateMatchStatus = async (newStatus) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/match/${matchId}/status`, {
+      const response = await fetch(`/api/match/${matchId}/status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -215,7 +215,7 @@ const MatchLobby = () => {
 
   const markPlayerReady = async () => {
     try {
-      const response = await fetch(`http://localhost:8000/api/match/${matchId}/ready`, {
+      const response = await fetch(`/api/match/${matchId}/ready`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
