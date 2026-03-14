@@ -61,12 +61,10 @@
     backdrop-filter: blur(12px);
   }
 
-  /* Fixed nav uses solid bg to prevent scroll-blur glitch */
+  /* Fixed nav — fully opaque, NO backdrop-filter (causes scroll glitch on mobile) */
   .glass-nav {
-    background: rgba(10, 10, 26, 0.92);
+    background: #0d0d24;
     border: 1px solid rgba(255, 255, 255, 0.06);
-    -webkit-backdrop-filter: blur(20px);
-    backdrop-filter: blur(20px);
   }
 
   .glass-button {

@@ -16,7 +16,8 @@ export default function Layout() {
   return (
     <div className="min-h-[100dvh] pb-[72px] md:pb-0 md:pl-20">
       {/* Mobile Header - solid bg to prevent scroll glitch */}
-      <header className="sticky top-0 z-40 glass-nav border-b border-white/[0.06] px-4 py-3 md:hidden">
+      <header className="sticky top-0 z-40 glass-nav border-b border-white/[0.06] px-4 py-3 md:hidden"
+              style={{ transform: 'translateZ(0)', willChange: 'transform' }}>
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-bold gradient-text">Watchlist</h1>
           <span className="text-sm text-white/50">{user?.username}</span>
@@ -46,9 +47,9 @@ export default function Layout() {
         <Outlet />
       </main>
 
-      {/* Mobile Bottom Nav - solid bg, fixed height, safe area */}
+      {/* Mobile Bottom Nav - fully opaque, GPU-composited layer */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 glass-nav border-t border-white/[0.06]"
-           style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+           style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)', transform: 'translateZ(0)', willChange: 'transform' }}>
         <div className="flex justify-around px-1 py-2">
           {navItems.map(({ to, icon: Icon, label, end }) => (
             <NavLink
