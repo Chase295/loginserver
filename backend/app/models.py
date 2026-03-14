@@ -141,6 +141,20 @@ class MatchReadyStatus(Base):
     match: Mapped["Match"] = relationship(back_populates="ready_status")
 
 
+class MatchPoolLink(Base):
+    """Links a watchlist to a match pool. All movies from linked watchlists are in the pool."""
+    __tablename__ = "match_pool_links"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    match_id: Mapped[int] = mapped_column(ForeignKey("matches.id", ondelete="CASCADE"))
+    watchlist_id: Mapped[int] = mapped_column(ForeignKey("watchlists.id", ondelete="CASCADE"))
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    excludes: Mapped[list | None] = mapped_column(JSONB, default=[])  # movie IDs to exclude
+
+    match: Mapped["Match"] = relationship()
+    watchlist: Mapped["Watchlist"] = relationship()
+
+
 class MatchPool(Base):
     __tablename__ = "match_pool"
 

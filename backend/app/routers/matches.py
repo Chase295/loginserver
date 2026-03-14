@@ -4,8 +4,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth import get_current_user
 from ..database import get_db
-from ..models import Match, MatchInvitation, MatchLike, MatchPool, Movie, User, Watchlist
-from ..schemas import MatchInviteCreate, MatchInviteResponse, MatchLikeCreate, MatchOut, MatchPoolAdd
+from ..models import Match, MatchInvitation, MatchLike, MatchPoolLink, Movie, User, Watchlist
+from ..schemas import MatchInviteCreate, MatchInviteResponse, MatchLikeCreate, MatchOut
 
 router = APIRouter(prefix="/api/match", tags=["matches"])
 
@@ -18,10 +18,22 @@ async def _get_match(match_id: int, user_id: int, db: AsyncSession) -> Match:
     return m
 
 
+async def _get_pool_movie_ids(match_id: int, db: AsyncSession) -> set[int]:
+    """Dynamically compute pool from all linked watchlists minus excludes."""
+    links = await db.execute(select(MatchPoolLink).where(MatchPoolLink.match_id == match_id))
+    all_ids = set()
+    for link in links.scalars().all():
+        movies = await db.execute(select(Movie.id).where(Movie.watchlist_id == link.watchlist_id))
+        movie_ids = set(movies.scalars().all())
+        excludes = set(link.excludes or [])
+        all_ids |= (movie_ids - excludes)
+    return all_ids
+
+
+# --- Invites ---
 @router.post("/invite", status_code=201)
 async def send_invite(data: MatchInviteCreate, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    # Check if active match already exists with this person
-    existing_match = await db.execute(
+    existing = await db.execute(
         select(Match).where(
             Match.status == "active",
             or_(
@@ -30,7 +42,7 @@ async def send_invite(data: MatchInviteCreate, user: User = Depends(get_current_
             ),
         )
     )
-    if existing_match.scalar_one_or_none():
+    if existing.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="Active match already exists")
 
     inv = MatchInvitation(sender_id=user.id, receiver_id=data.receiver_id)
@@ -71,7 +83,7 @@ async def cancel_invite(invitation_id: int, user: User = Depends(get_current_use
     return {"message": "Cancelled"}
 
 
-@router.get("/invites/received", response_model=list[dict])
+@router.get("/invites/received")
 async def received_invites(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(MatchInvitation, User)
@@ -81,7 +93,7 @@ async def received_invites(user: User = Depends(get_current_user), db: AsyncSess
     return [{"id": inv.id, "sender_id": inv.sender_id, "sender_username": u.username} for inv, u in result.all()]
 
 
-@router.get("/invites/sent", response_model=list[dict])
+@router.get("/invites/sent")
 async def sent_invites(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(MatchInvitation, User)
@@ -91,6 +103,7 @@ async def sent_invites(user: User = Depends(get_current_user), db: AsyncSession 
     return [{"id": inv.id, "receiver_id": inv.receiver_id, "receiver_username": u.username} for inv, u in result.all()]
 
 
+# --- Active Matches ---
 @router.get("/active", response_model=list[MatchOut])
 async def active_matches(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     result = await db.execute(
@@ -99,32 +112,16 @@ async def active_matches(user: User = Depends(get_current_user), db: AsyncSessio
             or_(Match.player1_id == user.id, Match.player2_id == user.id),
         )
     )
-    matches = result.scalars().all()
     out = []
-    for m in matches:
+    for m in result.scalars().all():
         p1 = await db.execute(select(User.username).where(User.id == m.player1_id))
         p2 = await db.execute(select(User.username).where(User.id == m.player2_id))
-
-        # Count matches and pool
-        common = await _count_common(m, db)
-        pool_count = await db.execute(select(MatchPool.id).where(MatchPool.match_id == m.id))
-
         out.append(MatchOut(
             id=m.id, player1_id=m.player1_id, player2_id=m.player2_id,
             player1_username=p1.scalar(), player2_username=p2.scalar(),
             status=m.status, created_at=m.created_at,
         ))
     return out
-
-
-async def _count_common(m: Match, db: AsyncSession) -> int:
-    likes1 = await db.execute(
-        select(MatchLike.movie_id).where(MatchLike.match_id == m.id, MatchLike.player_id == m.player1_id, MatchLike.liked.is_(True))
-    )
-    likes2 = await db.execute(
-        select(MatchLike.movie_id).where(MatchLike.match_id == m.id, MatchLike.player_id == m.player2_id, MatchLike.liked.is_(True))
-    )
-    return len(set(likes1.scalars().all()) & set(likes2.scalars().all()))
 
 
 @router.get("/{match_id}", response_model=MatchOut)
@@ -139,79 +136,112 @@ async def get_match(match_id: int, user: User = Depends(get_current_user), db: A
     )
 
 
-@router.post("/{match_id}/pool")
-async def add_to_pool(match_id: int, data: MatchPoolAdd, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+# --- Pool Links (Watchlists) ---
+@router.get("/{match_id}/links")
+async def get_links(match_id: int, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Get all linked watchlists for this match."""
     await _get_match(match_id, user.id, db)
-    added = 0
-    for movie_id in data.movie_ids:
-        existing = await db.execute(
-            select(MatchPool).where(MatchPool.match_id == match_id, MatchPool.movie_id == movie_id)
-        )
-        if not existing.scalar_one_or_none():
-            db.add(MatchPool(match_id=match_id, player_id=user.id, movie_id=movie_id))
-            added += 1
-    return {"message": f"{added} added to pool"}
-
-
-@router.delete("/{match_id}/pool/{movie_id}")
-async def remove_from_pool(match_id: int, movie_id: int, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    await _get_match(match_id, user.id, db)
-    result = await db.execute(
-        select(MatchPool).where(MatchPool.match_id == match_id, MatchPool.movie_id == movie_id)
-    )
-    mp = result.scalar_one_or_none()
-    if mp:
-        await db.delete(mp)
-        # Also remove likes for this movie
-        likes = await db.execute(
-            select(MatchLike).where(MatchLike.match_id == match_id, MatchLike.movie_id == movie_id)
-        )
-        for like in likes.scalars().all():
-            await db.delete(like)
-    return {"message": "Removed"}
-
-
-@router.get("/{match_id}/pool")
-async def get_pool(match_id: int, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    await _get_match(match_id, user.id, db)
-    result = await db.execute(
-        select(MatchPool, Movie).join(Movie, MatchPool.movie_id == Movie.id).where(MatchPool.match_id == match_id)
+    links = await db.execute(
+        select(MatchPoolLink, Watchlist)
+        .join(Watchlist, MatchPoolLink.watchlist_id == Watchlist.id)
+        .where(MatchPoolLink.match_id == match_id)
     )
     return [
         {
-            "id": mp.id, "player_id": mp.player_id,
-            "movie": {
-                "id": m.id, "title": m.title, "poster_url": m.poster_url,
-                "tmdb_id": m.tmdb_id, "media_type": m.media_type,
-                "backdrop_path": m.backdrop_path, "overview": m.overview,
-                "vote_average": m.vote_average, "year": m.year,
-            },
+            "id": link.id,
+            "watchlist_id": link.watchlist_id,
+            "watchlist_name": wl.name,
+            "watchlist_icon": wl.icon,
+            "user_id": link.user_id,
+            "excludes": link.excludes or [],
         }
-        for mp, m in result.all()
+        for link, wl in links.all()
+    ]
+
+
+@router.post("/{match_id}/links")
+async def link_watchlist(match_id: int, data: dict, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Link a watchlist to the match pool."""
+    await _get_match(match_id, user.id, db)
+    wl_id = data["watchlist_id"]
+
+    existing = await db.execute(
+        select(MatchPoolLink).where(MatchPoolLink.match_id == match_id, MatchPoolLink.watchlist_id == wl_id)
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="Already linked")
+
+    db.add(MatchPoolLink(match_id=match_id, watchlist_id=wl_id, user_id=user.id))
+    return {"message": "Watchlist linked"}
+
+
+@router.delete("/{match_id}/links/{watchlist_id}")
+async def unlink_watchlist(match_id: int, watchlist_id: int, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    await _get_match(match_id, user.id, db)
+    result = await db.execute(
+        select(MatchPoolLink).where(MatchPoolLink.match_id == match_id, MatchPoolLink.watchlist_id == watchlist_id)
+    )
+    link = result.scalar_one_or_none()
+    if link:
+        await db.delete(link)
+    return {"message": "Unlinked"}
+
+
+@router.put("/{match_id}/links/{watchlist_id}/exclude")
+async def toggle_exclude(match_id: int, watchlist_id: int, data: dict, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Toggle a movie exclusion. data: {movie_id: int}"""
+    await _get_match(match_id, user.id, db)
+    result = await db.execute(
+        select(MatchPoolLink).where(MatchPoolLink.match_id == match_id, MatchPoolLink.watchlist_id == watchlist_id)
+    )
+    link = result.scalar_one_or_none()
+    if not link:
+        raise HTTPException(status_code=404)
+
+    movie_id = data["movie_id"]
+    excludes = list(link.excludes or [])
+    if movie_id in excludes:
+        excludes.remove(movie_id)
+    else:
+        excludes.append(movie_id)
+    link.excludes = excludes
+    await db.flush()
+    return {"excludes": link.excludes}
+
+
+# --- Dynamic Pool ---
+@router.get("/{match_id}/pool")
+async def get_pool(match_id: int, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    await _get_match(match_id, user.id, db)
+    pool_ids = await _get_pool_movie_ids(match_id, db)
+    if not pool_ids:
+        return []
+    result = await db.execute(select(Movie).where(Movie.id.in_(pool_ids)))
+    return [
+        {
+            "id": m.id, "title": m.title, "poster_url": m.poster_url,
+            "tmdb_id": m.tmdb_id, "media_type": m.media_type,
+            "backdrop_path": m.backdrop_path, "overview": m.overview,
+            "vote_average": m.vote_average, "year": m.year,
+        }
+        for m in result.scalars().all()
     ]
 
 
 @router.get("/{match_id}/unswiped")
 async def get_unswiped(match_id: int, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    """Get movies in pool that this user hasn't voted on yet."""
     await _get_match(match_id, user.id, db)
+    pool_ids = await _get_pool_movie_ids(match_id, db)
 
-    # All pool movie IDs
-    pool = await db.execute(select(MatchPool.movie_id).where(MatchPool.match_id == match_id))
-    pool_ids = set(pool.scalars().all())
-
-    # Already voted
     voted = await db.execute(
         select(MatchLike.movie_id).where(MatchLike.match_id == match_id, MatchLike.player_id == user.id)
     )
     voted_ids = set(voted.scalars().all())
-
     unswiped_ids = pool_ids - voted_ids
     if not unswiped_ids:
         return []
 
     result = await db.execute(select(Movie).where(Movie.id.in_(unswiped_ids)))
-    movies = result.scalars().all()
     return [
         {
             "id": m.id, "title": m.title, "poster_url": m.poster_url,
@@ -219,13 +249,14 @@ async def get_unswiped(match_id: int, user: User = Depends(get_current_user), db
             "tmdb_id": m.tmdb_id, "media_type": m.media_type,
             "vote_average": m.vote_average, "year": m.year,
         }
-        for m in movies
+        for m in result.scalars().all()
     ]
 
 
+# --- Voting ---
 @router.post("/{match_id}/like")
 async def like_movie(match_id: int, data: MatchLikeCreate, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    await _get_match(match_id, user.id, db)
+    m = await _get_match(match_id, user.id, db)
     existing = await db.execute(
         select(MatchLike).where(
             MatchLike.match_id == match_id, MatchLike.player_id == user.id, MatchLike.movie_id == data.movie_id
@@ -237,10 +268,8 @@ async def like_movie(match_id: int, data: MatchLikeCreate, user: User = Depends(
     else:
         db.add(MatchLike(match_id=match_id, player_id=user.id, movie_id=data.movie_id, liked=data.liked))
 
-    # Check if this creates a new match
-    m = await _get_match(match_id, user.id, db)
-    other_id = m.player2_id if user.id == m.player1_id else m.player1_id
     if data.liked:
+        other_id = m.player2_id if user.id == m.player1_id else m.player1_id
         other_like = await db.execute(
             select(MatchLike).where(
                 MatchLike.match_id == match_id, MatchLike.player_id == other_id,
@@ -256,7 +285,6 @@ async def like_movie(match_id: int, data: MatchLikeCreate, user: User = Depends(
 @router.get("/{match_id}/matches")
 async def get_matches(match_id: int, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     m = await _get_match(match_id, user.id, db)
-
     likes1 = await db.execute(
         select(MatchLike.movie_id).where(MatchLike.match_id == match_id, MatchLike.player_id == m.player1_id, MatchLike.liked.is_(True))
     )
@@ -264,22 +292,20 @@ async def get_matches(match_id: int, user: User = Depends(get_current_user), db:
         select(MatchLike.movie_id).where(MatchLike.match_id == match_id, MatchLike.player_id == m.player2_id, MatchLike.liked.is_(True))
     )
     common = set(likes1.scalars().all()) & set(likes2.scalars().all())
+    if not common:
+        return []
 
-    movies = []
-    for mid in common:
-        r = await db.execute(select(Movie).where(Movie.id == mid))
-        mv = r.scalar_one_or_none()
-        if mv:
-            movies.append({"id": mv.id, "title": mv.title, "poster_url": mv.poster_url, "tmdb_id": mv.tmdb_id, "year": mv.year})
-    return movies
+    result = await db.execute(select(Movie).where(Movie.id.in_(common)))
+    return [
+        {"id": mv.id, "title": mv.title, "poster_url": mv.poster_url, "tmdb_id": mv.tmdb_id, "year": mv.year}
+        for mv in result.scalars().all()
+    ]
 
 
 @router.get("/{match_id}/stats")
 async def get_stats(match_id: int, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     m = await _get_match(match_id, user.id, db)
-
-    pool_count = await db.execute(select(MatchPool.id).where(MatchPool.match_id == match_id))
-    pool_total = len(pool_count.scalars().all())
+    pool_ids = await _get_pool_movie_ids(match_id, db)
 
     my_votes = await db.execute(
         select(MatchLike.id).where(MatchLike.match_id == match_id, MatchLike.player_id == user.id)
@@ -288,13 +314,20 @@ async def get_stats(match_id: int, user: User = Depends(get_current_user), db: A
     other_votes = await db.execute(
         select(MatchLike.id).where(MatchLike.match_id == match_id, MatchLike.player_id == other_id)
     )
-    common_count = await _count_common(m, db)
+
+    likes1 = await db.execute(
+        select(MatchLike.movie_id).where(MatchLike.match_id == match_id, MatchLike.player_id == m.player1_id, MatchLike.liked.is_(True))
+    )
+    likes2 = await db.execute(
+        select(MatchLike.movie_id).where(MatchLike.match_id == match_id, MatchLike.player_id == m.player2_id, MatchLike.liked.is_(True))
+    )
+    common = len(set(likes1.scalars().all()) & set(likes2.scalars().all()))
 
     return {
-        "pool_total": pool_total,
+        "pool_total": len(pool_ids),
         "my_votes": len(my_votes.scalars().all()),
         "other_votes": len(other_votes.scalars().all()),
-        "matches": common_count,
+        "matches": common,
     }
 
 
