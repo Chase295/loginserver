@@ -133,7 +133,7 @@ export default function Watchlist() {
 
   // Collect all unique tags from movies
   const allTags = [...new Map(
-    movies.flatMap(m => (m.tags || []).filter(t => !t.is_private))
+    movies.flatMap(m => (m.tags || []))
       .map(t => [t.label, t])
   ).values()]
 
