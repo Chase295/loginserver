@@ -270,12 +270,13 @@ export default function Discover() {
                 {/* Status */}
                 <div>
                   <label className="text-xs text-white/40 uppercase tracking-wider mb-2 block">Status</label>
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-5 gap-1.5">
                     {[
                       { v: 'watchlist', l: 'Watchlist', c: 'from-blue-500 to-cyan-400' },
+                      { v: 'watching', l: 'Schaue ich', c: 'from-purple-500 to-violet-400' },
                       { v: 'watched', l: 'Gesehen', c: 'from-green-500 to-emerald-400' },
                       { v: 'planned', l: 'Geplant', c: 'from-amber-500 to-yellow-400' },
-                      { v: 'dropped', l: 'Dropped', c: 'from-red-500 to-rose-400' },
+                      { v: 'dropped', l: 'Abgebr.', c: 'from-red-500 to-rose-400' },
                     ].map(({ v, l, c }) => (
                       <button
                         key={v}

@@ -39,6 +39,13 @@ export default function SeasonTracker({ tmdbId, progress, onChange, readonly }) 
 
   const getWatched = (seasonNum) => progress?.[String(seasonNum)] || []
 
+  const totalEps = seasons.reduce((sum, s) => sum + (s.episode_count || 0), 0)
+
+  const emitChange = (newProgress) => {
+    const watched = Object.values(newProgress || {}).reduce((sum, eps) => sum + eps.length, 0)
+    onChange(newProgress, { totalWatched: watched, totalEpisodes: totalEps })
+  }
+
   const toggleEpisode = (seasonNum, epNum) => {
     if (readonly) return
     const key = String(seasonNum)
@@ -46,20 +53,20 @@ export default function SeasonTracker({ tmdbId, progress, onChange, readonly }) 
     const newWatched = current.includes(epNum)
       ? current.filter(e => e !== epNum)
       : [...current, epNum].sort((a, b) => a - b)
-    onChange({ ...progress, [key]: newWatched })
+    emitChange({ ...progress, [key]: newWatched })
   }
 
-  const toggleSeason = (seasonNum, totalEpisodes) => {
+  const toggleSeason = (seasonNum, epCount) => {
     if (readonly) return
     const key = String(seasonNum)
     const current = getWatched(seasonNum)
-    const allEps = Array.from({ length: totalEpisodes }, (_, i) => i + 1)
-    const allWatched = current.length === totalEpisodes
-    onChange({ ...progress, [key]: allWatched ? [] : allEps })
+    const allEps = Array.from({ length: epCount }, (_, i) => i + 1)
+    const allWatched = current.length === epCount
+    emitChange({ ...progress, [key]: allWatched ? [] : allEps })
   }
 
   const totalWatched = Object.values(progress || {}).reduce((sum, eps) => sum + eps.length, 0)
-  const totalEpisodes = seasons.reduce((sum, s) => sum + (s.episode_count || 0), 0)
+  const totalEpisodes = totalEps
 
   if (loading) {
     return (

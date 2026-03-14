@@ -6,7 +6,8 @@ import MovieDetailModal from '../components/MovieDetailModal'
 import SearchBar from '../components/SearchBar'
 import Modal from '../components/Modal'
 
-const STATUSES = ['all', 'watchlist', 'watched', 'planned', 'dropped']
+const STATUSES = ['all', 'watchlist', 'watching', 'watched', 'planned', 'dropped']
+const STATUS_LABELS = { all: 'Alle', watchlist: 'Watchlist', watching: 'Schaue ich', watched: 'Gesehen', planned: 'Geplant', dropped: 'Abgebr.' }
 const ICONS = ['🎬', '❤️', '👻', '🍿', '🎭', '🌟', '🔥', '📺', '🎮', '👨‍👩‍👧‍👦', '🏠', '😂', '🎄', '🌙']
 
 export default function Watchlist() {
@@ -408,7 +409,7 @@ export default function Watchlist() {
                 : 'bg-white/[0.04] border border-white/[0.06] text-white/50 active:bg-white/[0.08]'
             }`}
           >
-            {s === 'all' ? 'Alle' : s.charAt(0).toUpperCase() + s.slice(1)}
+            {STATUS_LABELS[s]}
             {s !== 'all' && (
               <span className="ml-1.5 text-xs opacity-60">
                 {movies.filter(m => m.status === s).length}

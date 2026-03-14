@@ -7,9 +7,10 @@ const TMDB_IMG = 'https://image.tmdb.org/t/p'
 
 const STATUS_OPTIONS = [
   { value: 'watchlist', label: 'Watchlist', color: 'from-blue-500 to-cyan-400' },
-  { value: 'watched', label: 'Watched', color: 'from-green-500 to-emerald-400' },
-  { value: 'planned', label: 'Planned', color: 'from-amber-500 to-yellow-400' },
-  { value: 'dropped', label: 'Dropped', color: 'from-red-500 to-rose-400' },
+  { value: 'watching', label: 'Schaue ich', color: 'from-purple-500 to-violet-400' },
+  { value: 'watched', label: 'Gesehen', color: 'from-green-500 to-emerald-400' },
+  { value: 'planned', label: 'Geplant', color: 'from-amber-500 to-yellow-400' },
+  { value: 'dropped', label: 'Abgebr.', color: 'from-red-500 to-rose-400' },
 ]
 
 const TAG_COLORS = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ef4444', '#14b8a6']
@@ -100,7 +101,7 @@ export default function MovieDetailModal({ movie, open, onClose, onUpdate, onDel
       {!readonly && (
         <div className="mb-4">
           <label className="text-xs font-medium text-white/40 uppercase tracking-wider mb-2 block">Status</label>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-5 gap-1.5">
             {STATUS_OPTIONS.map(({ value, label, color }) => (
               <button
                 key={value}
@@ -152,7 +153,20 @@ export default function MovieDetailModal({ movie, open, onClose, onUpdate, onDel
           <SeasonTracker
             tmdbId={movie.tmdb_id}
             progress={movie.watch_progress || {}}
-            onChange={(wp) => save({ watch_progress: wp })}
+            onChange={(wp, { totalWatched, totalEpisodes } = {}) => {
+              const updates = { watch_progress: wp }
+              // Auto-set status based on progress
+              if (totalWatched !== undefined && totalEpisodes) {
+                if (totalWatched === 0 && ['watching'].includes(movie.status)) {
+                  updates.status = 'watchlist'
+                } else if (totalWatched > 0 && totalWatched < totalEpisodes && ['watchlist', 'planned'].includes(movie.status)) {
+                  updates.status = 'watching'
+                } else if (totalWatched >= totalEpisodes && movie.status !== 'watched') {
+                  updates.status = 'watched'
+                }
+              }
+              save(updates)
+            }}
             readonly={readonly}
           />
         </div>

@@ -4,9 +4,15 @@ const TMDB_IMG = 'https://image.tmdb.org/t/p'
 
 const statusColors = {
   watchlist: 'from-blue-500 to-cyan-400',
+  watching: 'from-purple-500 to-violet-400',
   watched: 'from-green-500 to-emerald-400',
   dropped: 'from-red-500 to-rose-400',
   planned: 'from-amber-500 to-yellow-400',
+}
+
+const statusLabels = {
+  watchlist: 'Watchlist', watching: 'Schaue ich', watched: 'Gesehen',
+  planned: 'Geplant', dropped: 'Abgebr.',
 }
 
 export default function MovieCard({ movie, onClick }) {
@@ -39,7 +45,7 @@ export default function MovieCard({ movie, onClick }) {
 
         {/* Status badge */}
         <div className={`absolute top-2 left-2 px-2 py-0.5 rounded-lg text-[10px] font-semibold uppercase tracking-wider bg-gradient-to-r ${statusColors[movie.status] || statusColors.watchlist} text-white shadow-lg`}>
-          {movie.status}
+          {statusLabels[movie.status] || movie.status}
         </div>
 
         {/* Rating */}
