@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { HiStar, HiTrash, HiEye, HiLockClosed, HiLockOpen, HiPlus, HiXMark } from 'react-icons/hi2'
+import { HiStar, HiTrash, HiLockClosed, HiLockOpen, HiPlus, HiXMark } from 'react-icons/hi2'
 import Modal from './Modal'
 import SeasonTracker from './SeasonTracker'
 
@@ -15,56 +15,50 @@ const STATUS_OPTIONS = [
 const TAG_COLORS = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ef4444', '#14b8a6']
 
 export default function MovieDetailModal({ movie, open, onClose, onUpdate, onDelete, readonly }) {
-  const [editData, setEditData] = useState(null)
   const [newTag, setNewTag] = useState('')
   const [newTagColor, setNewTagColor] = useState(TAG_COLORS[0])
+  const [showNotes, setShowNotes] = useState(false)
+  const [showTags, setShowTags] = useState(false)
+  const [noteDraft, setNoteDraft] = useState('')
 
   if (!movie) return null
 
-  const data = editData || movie
   const backdrop = movie.backdrop_path ? `${TMDB_IMG}/w780${movie.backdrop_path}` : null
   const poster = movie.poster_url ? `${TMDB_IMG}/w342${movie.poster_url}` : null
-  const isEditing = !!editData
 
-  const startEdit = () => setEditData({ ...movie })
-  const cancelEdit = () => setEditData(null)
+  const save = (data) => {
+    if (onUpdate) onUpdate(movie.id, data)
+  }
 
-  const saveEdit = () => {
-    if (!editData || !onUpdate) return
-    onUpdate(movie.id, {
-      status: editData.status,
-      rating: editData.rating,
-      notes: editData.notes,
-      is_private: editData.is_private,
-      tags: editData.tags,
-      watch_progress: editData.watch_progress,
-    })
-    setEditData(null)
-    onClose()
+  const setStatus = (status) => save({ status })
+  const setRating = (r) => save({ rating: movie.rating === r ? null : r })
+  const togglePrivate = () => save({ is_private: !movie.is_private })
+
+  const saveNotes = () => {
+    save({ notes: noteDraft })
+    setShowNotes(false)
   }
 
   const addTag = () => {
-    if (!newTag.trim() || !editData) return
+    if (!newTag.trim()) return
     const tag = { label: newTag.trim(), color: newTagColor, is_private: false }
-    setEditData({ ...editData, tags: [...(editData.tags || []), tag] })
+    save({ tags: [...(movie.tags || []), tag] })
     setNewTag('')
   }
 
   const removeTag = (index) => {
-    if (!editData) return
-    setEditData({ ...editData, tags: editData.tags.filter((_, i) => i !== index) })
+    save({ tags: (movie.tags || []).filter((_, i) => i !== index) })
   }
 
   const toggleTagPrivate = (index) => {
-    if (!editData) return
-    const tags = [...editData.tags]
+    const tags = [...(movie.tags || [])]
     tags[index] = { ...tags[index], is_private: !tags[index].is_private }
-    setEditData({ ...editData, tags })
+    save({ tags })
   }
 
   return (
     <Modal open={open} onClose={onClose} title={movie.title} large>
-      {/* Backdrop image */}
+      {/* Backdrop */}
       {backdrop && (
         <div className="relative -mx-5 -mt-4 mb-4 h-44 md:h-56 overflow-hidden rounded-t-lg">
           <img src={backdrop} alt="" className="w-full h-full object-cover" />
@@ -73,14 +67,11 @@ export default function MovieDetailModal({ movie, open, onClose, onUpdate, onDel
       )}
 
       <div className="flex gap-4 mb-4">
-        {/* Poster */}
         {poster && (
           <div className="shrink-0 w-28 md:w-32 rounded-xl overflow-hidden shadow-xl shadow-black/40 -mt-16 relative z-10 border border-white/10">
             <img src={poster} alt={movie.title} className="w-full aspect-[2/3] object-cover" />
           </div>
         )}
-
-        {/* Quick info */}
         <div className="flex-1 pt-1">
           <h3 className="text-xl font-bold leading-tight">{movie.title}</h3>
           <div className="flex flex-wrap items-center gap-2 mt-1.5 text-sm text-white/50">
@@ -102,46 +93,52 @@ export default function MovieDetailModal({ movie, open, onClose, onUpdate, onDel
 
       {/* Overview */}
       {movie.overview && (
+        <p className="text-sm text-white/60 leading-relaxed mb-4">{movie.overview}</p>
+      )}
+
+      {/* Status - always interactive */}
+      {!readonly && (
         <div className="mb-4">
-          <p className="text-sm text-white/60 leading-relaxed">{movie.overview}</p>
+          <label className="text-xs font-medium text-white/40 uppercase tracking-wider mb-2 block">Status</label>
+          <div className="grid grid-cols-4 gap-2">
+            {STATUS_OPTIONS.map(({ value, label, color }) => (
+              <button
+                key={value}
+                onClick={() => setStatus(value)}
+                className={`py-2 px-2 rounded-xl text-xs font-semibold text-center transition-all active:scale-95 ${
+                  movie.status === value
+                    ? `bg-gradient-to-r ${color} text-white shadow-lg`
+                    : 'bg-white/[0.06] text-white/40'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {readonly && (
+        <div className="mb-4">
+          <span className={`inline-block px-3 py-1 rounded-xl text-xs font-semibold bg-gradient-to-r ${STATUS_OPTIONS.find(s => s.value === movie.status)?.color || ''} text-white`}>
+            {movie.status}
+          </span>
         </div>
       )}
 
-      {/* Status */}
-      <div className="mb-4">
-        <label className="text-xs font-medium text-white/40 uppercase tracking-wider mb-2 block">Status</label>
-        <div className="grid grid-cols-4 gap-2">
-          {STATUS_OPTIONS.map(({ value, label, color }) => (
-            <button
-              key={value}
-              onClick={() => isEditing && setEditData({ ...editData, status: value })}
-              disabled={!isEditing && !readonly}
-              className={`py-2 px-2 rounded-xl text-xs font-semibold text-center transition-all ${
-                data.status === value
-                  ? `bg-gradient-to-r ${color} text-white shadow-lg`
-                  : 'bg-white/[0.06] text-white/40'
-              } ${isEditing ? 'active:scale-95 cursor-pointer' : ''}`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Rating */}
+      {/* Rating - always interactive */}
       <div className="mb-4">
         <label className="text-xs font-medium text-white/40 uppercase tracking-wider mb-2 block">Bewertung</label>
         <div className="flex gap-1.5">
           {[1, 2, 3, 4, 5].map(r => (
             <button
               key={r}
-              onClick={() => isEditing && setEditData({ ...editData, rating: editData.rating === r ? null : r })}
-              disabled={!isEditing}
+              onClick={() => !readonly && setRating(r)}
+              disabled={readonly}
               className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
-                (data.rating || 0) >= r
-                  ? 'bg-amber-400/20 text-amber-400 border border-amber-400/30 shadow-lg shadow-amber-400/10'
+                (movie.rating || 0) >= r
+                  ? 'bg-amber-400/20 text-amber-400 border border-amber-400/30'
                   : 'bg-white/[0.06] text-white/20'
-              } ${isEditing ? 'active:scale-90 cursor-pointer' : ''}`}
+              } ${!readonly ? 'active:scale-90 cursor-pointer' : ''}`}
             >
               <HiStar className="w-5 h-5" />
             </button>
@@ -149,11 +146,29 @@ export default function MovieDetailModal({ movie, open, onClose, onUpdate, onDel
         </div>
       </div>
 
-      {/* Tags */}
+      {/* Season Tracker (TV only) */}
+      {movie.media_type === 'tv' && movie.tmdb_id && (
+        <div className="mb-4">
+          <SeasonTracker
+            tmdbId={movie.tmdb_id}
+            progress={movie.watch_progress || {}}
+            onChange={(wp) => save({ watch_progress: wp })}
+            readonly={readonly}
+          />
+        </div>
+      )}
+
+      {/* Tags - inline editable */}
       <div className="mb-4">
-        <label className="text-xs font-medium text-white/40 uppercase tracking-wider mb-2 block">Tags</label>
-        <div className="flex flex-wrap gap-1.5 mb-2">
-          {(data.tags || []).map((tag, i) => (
+        <button
+          onClick={() => !readonly && setShowTags(!showTags)}
+          className="text-xs font-medium text-white/40 uppercase tracking-wider mb-2 flex items-center gap-1"
+        >
+          Tags
+          {!readonly && <span className="text-primary-400/60 normal-case text-[10px]">(bearbeiten)</span>}
+        </button>
+        <div className="flex flex-wrap gap-1.5">
+          {(movie.tags || []).map((tag, i) => (
             <span
               key={i}
               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium"
@@ -161,26 +176,25 @@ export default function MovieDetailModal({ movie, open, onClose, onUpdate, onDel
             >
               {tag.is_private && <HiLockClosed className="w-3 h-3 opacity-60" />}
               {tag.label}
-              {isEditing && (
+              {showTags && !readonly && (
                 <>
-                  <button onClick={() => toggleTagPrivate(i)} className="ml-0.5 opacity-60 hover:opacity-100">
+                  <button onClick={() => toggleTagPrivate(i)} className="ml-0.5 opacity-60 active:opacity-100">
                     {tag.is_private ? <HiLockOpen className="w-3 h-3" /> : <HiLockClosed className="w-3 h-3" />}
                   </button>
-                  <button onClick={() => removeTag(i)} className="opacity-60 hover:opacity-100">
+                  <button onClick={() => removeTag(i)} className="opacity-60 active:opacity-100">
                     <HiXMark className="w-3 h-3" />
                   </button>
                 </>
               )}
             </span>
           ))}
-          {(data.tags || []).length === 0 && !isEditing && (
+          {(movie.tags || []).length === 0 && readonly && (
             <span className="text-xs text-white/20">Keine Tags</span>
           )}
         </div>
 
-        {/* Add tag (edit mode) */}
-        {isEditing && (
-          <div className="flex gap-2 items-center">
+        {showTags && !readonly && (
+          <div className="flex gap-2 items-center mt-2">
             <input
               type="text"
               value={newTag}
@@ -206,87 +220,62 @@ export default function MovieDetailModal({ movie, open, onClose, onUpdate, onDel
         )}
       </div>
 
-      {/* Season Tracker (TV only) */}
-      {movie.media_type === 'tv' && movie.tmdb_id && (
-        <div className="mb-4">
-          <SeasonTracker
-            tmdbId={movie.tmdb_id}
-            progress={isEditing ? (editData.watch_progress || {}) : (movie.watch_progress || {})}
-            onChange={(wp) => {
-              if (isEditing) {
-                setEditData({ ...editData, watch_progress: wp })
-              } else if (onUpdate) {
-                onUpdate(movie.id, { watch_progress: wp })
-              }
-            }}
-            readonly={readonly}
-          />
-        </div>
-      )}
-
-      {/* Notes */}
+      {/* Notes - tap to expand */}
       <div className="mb-4">
         <label className="text-xs font-medium text-white/40 uppercase tracking-wider mb-2 block">Notizen</label>
-        {isEditing ? (
-          <textarea
-            value={editData.notes || ''}
-            onChange={(e) => setEditData({ ...editData, notes: e.target.value })}
-            placeholder="Deine Notizen zum Film..."
-            className="glass-input min-h-[80px] resize-none text-sm"
-          />
+        {!readonly && showNotes ? (
+          <div className="space-y-2">
+            <textarea
+              value={noteDraft}
+              onChange={(e) => setNoteDraft(e.target.value)}
+              placeholder="Deine Notizen..."
+              className="glass-input min-h-[80px] resize-none text-sm"
+              autoFocus
+            />
+            <div className="flex gap-2">
+              <button onClick={() => setShowNotes(false)} className="glass-button flex-1 text-sm text-center">Abbrechen</button>
+              <button onClick={saveNotes} className="btn-primary flex-1 text-sm py-2.5">Speichern</button>
+            </div>
+          </div>
         ) : (
-          <p className="text-sm text-white/50">
-            {data.notes || <span className="text-white/20">Keine Notizen</span>}
-          </p>
+          <button
+            onClick={() => { if (!readonly) { setNoteDraft(movie.notes || ''); setShowNotes(true) } }}
+            className={`w-full text-left p-3 rounded-xl text-sm ${
+              movie.notes
+                ? 'bg-white/[0.04] text-white/50'
+                : 'bg-white/[0.02] text-white/20'
+            } ${!readonly ? 'active:bg-white/[0.06]' : ''}`}
+          >
+            {movie.notes || (readonly ? 'Keine Notizen' : 'Notizen hinzufügen...')}
+          </button>
         )}
       </div>
 
-      {/* Privacy toggle */}
-      {isEditing && (
-        <div className="flex items-center gap-3 mb-6 p-3 rounded-xl bg-white/[0.04]">
-          <button
-            onClick={() => setEditData({ ...editData, is_private: !editData.is_private })}
-            className={`relative w-12 h-7 rounded-full transition-colors ${editData.is_private ? 'bg-primary-500' : 'bg-white/10'}`}
-          >
-            <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-transform ${editData.is_private ? 'left-6' : 'left-1'}`} />
-          </button>
-          <div>
-            <span className="text-sm font-medium">{editData.is_private ? 'Privat' : 'Öffentlich'}</span>
-            <p className="text-[11px] text-white/30">
-              {editData.is_private ? 'Freunde können diesen Film nicht sehen' : 'Sichtbar für Freunde'}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Action buttons */}
+      {/* Privacy + Delete */}
       {!readonly && (
-        <div className="flex gap-2 pt-2 border-t border-white/[0.06]">
-          {isEditing ? (
-            <>
-              <button onClick={cancelEdit} className="glass-button flex-1 text-sm text-center">Abbrechen</button>
-              <button onClick={saveEdit} className="btn-primary flex-1 text-sm py-2.5">Speichern</button>
-            </>
-          ) : (
-            <>
-              <button onClick={startEdit} className="btn-primary flex-1 text-sm py-2.5">Bearbeiten</button>
-              {onUpdate && data.status !== 'watched' && (
-                <button
-                  onClick={() => { onUpdate(movie.id, { status: 'watched' }); onClose() }}
-                  className="glass-button flex-1 text-sm text-center text-green-400"
-                >
-                  <HiEye className="w-4 h-4 inline mr-1.5" />Gesehen
-                </button>
-              )}
-              {onDelete && (
-                <button
-                  onClick={() => { onDelete(movie.id); onClose() }}
-                  className="glass-button px-3 text-red-400"
-                >
-                  <HiTrash className="w-4 h-4" />
-                </button>
-              )}
-            </>
+        <div className="flex items-center gap-3 pt-3 border-t border-white/[0.06]">
+          <button
+            onClick={togglePrivate}
+            className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all ${
+              movie.is_private
+                ? 'bg-primary-500/20 text-primary-400 border border-primary-400/30'
+                : 'bg-white/[0.04] text-white/40'
+            }`}
+          >
+            {movie.is_private ? <HiLockClosed className="w-3.5 h-3.5" /> : <HiLockOpen className="w-3.5 h-3.5" />}
+            {movie.is_private ? 'Privat' : 'Öffentlich'}
+          </button>
+
+          <div className="flex-1" />
+
+          {onDelete && (
+            <button
+              onClick={() => { onDelete(movie.id); onClose() }}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-red-500/10 text-red-400 active:bg-red-500/20 transition-all"
+            >
+              <HiTrash className="w-3.5 h-3.5" />
+              Löschen
+            </button>
           )}
         </div>
       )}
