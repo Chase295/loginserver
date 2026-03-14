@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { motion } from 'framer-motion'
-import { HiUserPlus, HiCheck, HiXMark, HiChevronRight, HiHeart } from 'react-icons/hi2'
+import { Link, useNavigate } from 'react-router-dom'
+import { HiUserPlus, HiCheck, HiXMark, HiChevronRight, HiHeart, HiSparkles, HiTrash } from 'react-icons/hi2'
 import api from '../api/client'
 import Modal from '../components/Modal'
 
@@ -11,6 +10,10 @@ export default function Friends() {
   const [users, setUsers] = useState([])
   const [showAdd, setShowAdd] = useState(false)
   const [searchUser, setSearchUser] = useState('')
+  const [matchInvitesReceived, setMatchInvitesReceived] = useState([])
+  const [matchInvitesSent, setMatchInvitesSent] = useState([])
+  const [activeMatches, setActiveMatches] = useState([])
+  const navigate = useNavigate()
 
   useEffect(() => {
     fetchAll()
@@ -19,6 +22,9 @@ export default function Friends() {
   const fetchAll = () => {
     api.get('/friends/list').then(r => setFriends(r.data)).catch(() => {})
     api.get('/friends/requests').then(r => setRequests(r.data)).catch(() => {})
+    api.get('/match/invites/received').then(r => setMatchInvitesReceived(r.data)).catch(() => {})
+    api.get('/match/invites/sent').then(r => setMatchInvitesSent(r.data)).catch(() => {})
+    api.get('/match/active').then(r => setActiveMatches(r.data)).catch(() => {})
   }
 
   const openAddModal = async () => {
@@ -44,9 +50,26 @@ export default function Friends() {
     } catch {}
   }
 
-  const removeFriend = async (id) => {
+  const sendMatchInvite = async (userId) => {
     try {
-      await api.post('/friends/delete', { friend_id: id })
+      await api.post('/match/invite', { receiver_id: userId })
+      fetchAll()
+    } catch {}
+  }
+
+  const respondMatchInvite = async (invId, action) => {
+    try {
+      const res = await api.post('/match/invite/respond', { invitation_id: invId, action })
+      if (res.data.match_id) {
+        navigate(`/match/${res.data.match_id}`)
+      }
+      fetchAll()
+    } catch {}
+  }
+
+  const cancelMatchInvite = async (invId) => {
+    try {
+      await api.delete(`/match/invite/${invId}`)
       fetchAll()
     } catch {}
   }
@@ -55,6 +78,9 @@ export default function Friends() {
     u.username.toLowerCase().includes(searchUser.toLowerCase()) &&
     !friends.some(f => f.user_id === u.id)
   )
+
+  const hasPendingInviteTo = (userId) =>
+    matchInvitesSent.some(i => i.receiver_id === userId)
 
   return (
     <div className="space-y-6">
@@ -65,20 +91,84 @@ export default function Friends() {
         </button>
       </div>
 
-      {/* Pending Requests */}
+      {/* Active Matches */}
+      {activeMatches.length > 0 && (
+        <section>
+          <h2 className="text-sm font-medium text-white/50 uppercase tracking-wider mb-3">
+            Aktive Matches ({activeMatches.length})
+          </h2>
+          <div className="space-y-2">
+            {activeMatches.map(match => (
+              <Link
+                key={match.id}
+                to={`/match/${match.id}`}
+                className="glass p-4 flex items-center justify-between active:scale-[0.98] transition-transform block"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center">
+                    <HiSparkles className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-medium">{match.player1_username} vs {match.player2_username}</p>
+                    <p className="text-xs text-white/40">
+                      {match.status === 'lobby' ? 'In der Lobby' : 'Spiel läuft'}
+                    </p>
+                  </div>
+                </div>
+                <HiChevronRight className="w-5 h-5 text-white/20" />
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Match Invites Received */}
+      {matchInvitesReceived.length > 0 && (
+        <section>
+          <h2 className="text-sm font-medium text-white/50 uppercase tracking-wider mb-3">
+            Match-Einladungen ({matchInvitesReceived.length})
+          </h2>
+          <div className="space-y-2">
+            {matchInvitesReceived.map(inv => (
+              <div key={inv.id} className="glass p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center">
+                    <HiSparkles className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-medium">{inv.sender_username}</p>
+                    <p className="text-xs text-white/40">möchte matchen</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => respondMatchInvite(inv.id, 'accept')}
+                    className="w-10 h-10 rounded-xl bg-green-500/20 text-green-400 flex items-center justify-center active:scale-90 transition-transform"
+                  >
+                    <HiCheck className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => respondMatchInvite(inv.id, 'reject')}
+                    className="w-10 h-10 rounded-xl bg-red-500/20 text-red-400 flex items-center justify-center active:scale-90 transition-transform"
+                  >
+                    <HiXMark className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Friend Requests */}
       {requests.length > 0 && (
         <section>
           <h2 className="text-sm font-medium text-white/50 uppercase tracking-wider mb-3">
-            Anfragen ({requests.length})
+            Freundschaftsanfragen ({requests.length})
           </h2>
           <div className="space-y-2">
             {requests.map(req => (
-              <motion.div
-                key={req.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="glass p-4 flex items-center justify-between"
-              >
+              <div key={req.id} className="glass p-4 flex items-center justify-between">
                 <div>
                   <p className="font-medium">{req.sender_username}</p>
                   <p className="text-xs text-white/40">möchte dein Freund sein</p>
@@ -86,18 +176,18 @@ export default function Friends() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => respondRequest(req.id, 'accept')}
-                    className="w-10 h-10 rounded-xl bg-green-500/20 text-green-400 flex items-center justify-center hover:bg-green-500/30 transition-colors"
+                    className="w-10 h-10 rounded-xl bg-green-500/20 text-green-400 flex items-center justify-center active:scale-90 transition-transform"
                   >
                     <HiCheck className="w-5 h-5" />
                   </button>
                   <button
                     onClick={() => respondRequest(req.id, 'reject')}
-                    className="w-10 h-10 rounded-xl bg-red-500/20 text-red-400 flex items-center justify-center hover:bg-red-500/30 transition-colors"
+                    className="w-10 h-10 rounded-xl bg-red-500/20 text-red-400 flex items-center justify-center active:scale-90 transition-transform"
                   >
                     <HiXMark className="w-5 h-5" />
                   </button>
                 </div>
-              </motion.div>
+              </div>
             ))}
           </div>
         </section>
@@ -117,17 +207,14 @@ export default function Friends() {
         ) : (
           <div className="space-y-2">
             {friends.map(friend => (
-              <Link
-                key={friend.id}
-                to={`/friends/${friend.username}`}
-                className="glass p-4 flex items-center justify-between group hover:border-primary-400/30 transition-colors block"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-500 to-purple-600 flex items-center justify-center font-bold text-sm">
+              <div key={friend.id} className="glass p-4 flex items-center gap-3">
+                {/* Avatar + Info - clickable to watchlist */}
+                <Link to={`/friends/${friend.username}`} className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="w-10 h-10 shrink-0 rounded-full bg-gradient-to-br from-primary-500 to-purple-600 flex items-center justify-center font-bold text-sm">
                     {friend.username[0].toUpperCase()}
                   </div>
-                  <div>
-                    <p className="font-medium">{friend.username}</p>
+                  <div className="min-w-0">
+                    <p className="font-medium truncate">{friend.username}</p>
                     {friend.friendship_level && (
                       <p className="text-xs text-primary-400/60">
                         {friend.friendship_level}
@@ -135,13 +222,56 @@ export default function Friends() {
                       </p>
                     )}
                   </div>
-                </div>
-                <HiChevronRight className="w-5 h-5 text-white/20 group-hover:text-white/50 transition-colors" />
-              </Link>
+                </Link>
+
+                {/* Match Button */}
+                <button
+                  onClick={() => !hasPendingInviteTo(friend.user_id) && sendMatchInvite(friend.user_id)}
+                  disabled={hasPendingInviteTo(friend.user_id)}
+                  className={`shrink-0 px-3 py-2 rounded-xl text-xs font-medium flex items-center gap-1.5 transition-all active:scale-95 ${
+                    hasPendingInviteTo(friend.user_id)
+                      ? 'bg-white/[0.04] text-white/20'
+                      : 'bg-pink-500/20 text-pink-400 border border-pink-500/30'
+                  }`}
+                >
+                  <HiSparkles className="w-3.5 h-3.5" />
+                  {hasPendingInviteTo(friend.user_id) ? 'Eingeladen' : 'Matchen'}
+                </button>
+
+                {/* View watchlist */}
+                <Link to={`/friends/${friend.username}`} className="shrink-0 text-white/20">
+                  <HiChevronRight className="w-5 h-5" />
+                </Link>
+              </div>
             ))}
           </div>
         )}
       </section>
+
+      {/* Sent Match Invites */}
+      {matchInvitesSent.length > 0 && (
+        <section>
+          <h2 className="text-sm font-medium text-white/50 uppercase tracking-wider mb-3">
+            Gesendete Match-Einladungen
+          </h2>
+          <div className="space-y-2">
+            {matchInvitesSent.map(inv => (
+              <div key={inv.id} className="glass-light p-3 flex items-center justify-between rounded-xl">
+                <div>
+                  <p className="text-sm font-medium">{inv.receiver_username}</p>
+                  <p className="text-[11px] text-white/30">Wartet auf Antwort...</p>
+                </div>
+                <button
+                  onClick={() => cancelMatchInvite(inv.id)}
+                  className="text-red-400/60 p-1.5 active:scale-90 transition-transform"
+                >
+                  <HiTrash className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Add Friend Modal */}
       <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Freund hinzufügen">
