@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { HiPlus, HiCheck, HiStar, HiMagnifyingGlass } from 'react-icons/hi2'
 import api from '../api/client'
 import Modal from '../components/Modal'
+import WatchProviders from '../components/WatchProviders'
 
 const TMDB_IMG = 'https://image.tmdb.org/t/p'
 
@@ -242,6 +243,14 @@ export default function Discover() {
             {/* Overview */}
             {detail.overview && (
               <p className="text-sm text-white/60 leading-relaxed mb-4">{detail.overview}</p>
+            )}
+
+            {/* Streaming Providers */}
+            {detail.id && (
+              <div className="mb-4">
+                <label className="text-xs font-medium text-white/40 uppercase tracking-wider mb-2 block">Verfügbar auf</label>
+                <WatchProviders mediaType={detail.media_type} tmdbId={detail.id} />
+              </div>
             )}
 
             {/* Cast */}

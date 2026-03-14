@@ -25,6 +25,12 @@ async def upcoming(page: int = 1, user: User = Depends(get_current_user)):
     return await tmdb.upcoming(page)
 
 
+@router.get("/{media_type}/{tmdb_id}/providers")
+async def providers(media_type: str, tmdb_id: int, user: User = Depends(get_current_user)):
+    tmdb = TMDBService()
+    return await tmdb.watch_providers(media_type, tmdb_id)
+
+
 @router.get("/tv/{tmdb_id}/season/{season_number}")
 async def season(tmdb_id: int, season_number: int, user: User = Depends(get_current_user)):
     tmdb = TMDBService()

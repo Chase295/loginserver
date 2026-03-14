@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { HiStar, HiTrash, HiLockClosed, HiLockOpen, HiPlus, HiXMark } from 'react-icons/hi2'
 import Modal from './Modal'
 import SeasonTracker from './SeasonTracker'
+import WatchProviders from './WatchProviders'
 
 const TMDB_IMG = 'https://image.tmdb.org/t/p'
 
@@ -95,6 +96,14 @@ export default function MovieDetailModal({ movie, open, onClose, onUpdate, onDel
       {/* Overview */}
       {movie.overview && (
         <p className="text-sm text-white/60 leading-relaxed mb-4">{movie.overview}</p>
+      )}
+
+      {/* Streaming Providers */}
+      {movie.tmdb_id && movie.media_type && (
+        <div className="mb-4">
+          <label className="text-xs font-medium text-white/40 uppercase tracking-wider mb-2 block">Verfügbar auf</label>
+          <WatchProviders mediaType={movie.media_type} tmdbId={movie.tmdb_id} />
+        </div>
       )}
 
       {/* Status - always interactive */}

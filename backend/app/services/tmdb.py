@@ -33,3 +33,8 @@ class TMDBService:
 
     async def season(self, tmdb_id: int, season_number: int) -> dict:
         return await self._get(f"/tv/{tmdb_id}/season/{season_number}", {"language": "de-DE"})
+
+    async def watch_providers(self, media_type: str, tmdb_id: int) -> dict:
+        data = await self._get(f"/{media_type}/{tmdb_id}/watch/providers")
+        # Return DE providers, fallback to empty
+        return data.get("results", {}).get("DE", {})
