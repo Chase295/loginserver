@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { HiArrowLeft } from 'react-icons/hi2'
-import { AnimatePresence } from 'framer-motion'
+
 import api from '../api/client'
 import MovieCard from '../components/MovieCard'
 import MovieDetailModal from '../components/MovieDetailModal'
@@ -53,11 +53,11 @@ export default function FriendWatchlist() {
         <>
           <SearchBar value={search} onChange={setSearch} />
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-            <AnimatePresence>
+            
               {filtered.map(movie => (
                 <MovieCard key={movie.id} movie={movie} onClick={setSelectedMovie} />
               ))}
-            </AnimatePresence>
+            
           </div>
         </>
       )}

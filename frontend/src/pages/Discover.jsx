@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+
 import { HiPlus, HiCheck, HiStar, HiMagnifyingGlass } from 'react-icons/hi2'
 import api from '../api/client'
 import Modal from '../components/Modal'
@@ -127,13 +127,9 @@ export default function Discover() {
 
       {/* Results Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-        <AnimatePresence>
           {items.filter(i => i.media_type !== 'person').map((item) => (
-            <motion.div
+            <div
               key={item.id}
-              layout
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
               className="movie-card"
               onClick={() => openDetail(item)}
             >
@@ -186,9 +182,8 @@ export default function Discover() {
                   {(item.release_date || item.first_air_date || '').slice(0, 4)}
                 </p>
               </div>
-            </motion.div>
+            </div>
           ))}
-        </AnimatePresence>
       </div>
 
       {/* Detail Modal */}

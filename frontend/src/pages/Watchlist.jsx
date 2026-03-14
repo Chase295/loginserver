@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
 import { HiPlus, HiPencil, HiTrash, HiShare, HiChevronDown, HiUserPlus, HiXMark } from 'react-icons/hi2'
 import api from '../api/client'
 import MovieCard from '../components/MovieCard'
@@ -178,14 +177,8 @@ export default function Watchlist() {
       </div>
 
       {/* Watchlist Picker Dropdown */}
-      <AnimatePresence>
         {showWlPicker && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden"
-          >
+          <div className="overflow-hidden">
             <div className="glass p-2 space-y-1">
               <button
                 onClick={() => { setActiveWl(null); setShowWlPicker(false) }}
@@ -226,9 +219,8 @@ export default function Watchlist() {
                 </button>
               ))}
             </div>
-          </motion.div>
+          </div>
         )}
-      </AnimatePresence>
 
       <SearchBar value={search} onChange={setSearch} placeholder="Film suchen..." />
 
@@ -267,11 +259,11 @@ export default function Watchlist() {
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-          <AnimatePresence>
+          
             {filtered.map(movie => (
               <MovieCard key={movie.id} movie={movie} onClick={setSelectedMovie} />
             ))}
-          </AnimatePresence>
+          
         </div>
       )}
 

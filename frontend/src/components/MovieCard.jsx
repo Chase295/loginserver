@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion'
 import { HiStar } from 'react-icons/hi2'
 
 const TMDB_IMG = 'https://image.tmdb.org/t/p'
@@ -16,11 +15,7 @@ export default function MovieCard({ movie, onClick }) {
     : null
 
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.9 }}
+    <div
       onClick={() => onClick?.(movie)}
       className="movie-card"
     >
@@ -93,6 +88,6 @@ export default function MovieCard({ movie, onClick }) {
           </div>
         )}
       </div>
-    </motion.div>
+    </div>
   )
 }
