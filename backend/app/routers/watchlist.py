@@ -176,11 +176,15 @@ async def unshare_watchlist(watchlist_id: int, user_id: int, user: User = Depend
     return {"message": "Unshared"}
 
 
+def _needs_enrich(movie: Movie) -> bool:
+    return bool(movie.tmdb_id and movie.media_type and (not movie.poster_url or not movie.overview or not movie.backdrop_path))
+
+
 async def _auto_enrich(movies: list[Movie], db: AsyncSession):
-    """Auto-enrich movies missing poster from TMDB."""
+    """Auto-enrich movies missing metadata from TMDB."""
     tmdb = TMDBService()
     for movie in movies:
-        if movie.tmdb_id and movie.media_type and not movie.poster_url:
+        if _needs_enrich(movie):
             try:
                 data = await tmdb.details(movie.media_type, movie.tmdb_id)
                 if data.get("poster_path"):
@@ -230,7 +234,7 @@ async def get_movies(
         )
 
     movies = result.scalars().all()
-    to_enrich = [m for m in movies if m.tmdb_id and not m.poster_url]
+    to_enrich = [m for m in movies if _needs_enrich(m)]
     if to_enrich:
         await _auto_enrich(to_enrich, db)
     return movies
@@ -384,7 +388,7 @@ async def get_user_watchlist(username: str, user: User = Depends(get_current_use
 
         all_movies.extend(movies)
 
-    to_enrich = [m for m in all_movies if m.tmdb_id and not m.poster_url]
+    to_enrich = [m for m in all_movies if _needs_enrich(m)]
     if to_enrich:
         await _auto_enrich(to_enrich, db)
     return all_movies
