@@ -7,10 +7,24 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  html {
+    overflow-y: scroll;
+    overscroll-behavior: none;
+  }
+
   body {
     @apply bg-[#0a0a1a] text-white font-sans antialiased;
     min-height: 100dvh;
     overflow-x: hidden;
+  }
+
+  /* Hide scrollbar on horizontal scroll containers */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
   }
 
   ::-webkit-scrollbar {
@@ -23,31 +37,53 @@
     background: rgba(99, 102, 241, 0.3);
     border-radius: 3px;
   }
+
+  /* Fix select dropdown dark theme */
+  select option {
+    background: #1a1a3a;
+    color: white;
+  }
 }
 
 @layer components {
   .glass {
-    @apply bg-white/[0.06] backdrop-blur-xl border border-white/[0.08] rounded-2xl;
+    @apply bg-white/[0.06] border border-white/[0.08] rounded-2xl;
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
     box-shadow:
       0 8px 32px rgba(0, 0, 0, 0.4),
       inset 0 1px 0 rgba(255, 255, 255, 0.05);
   }
 
   .glass-light {
-    @apply bg-white/[0.04] backdrop-blur-lg border border-white/[0.06] rounded-xl;
+    @apply bg-white/[0.04] border border-white/[0.06] rounded-xl;
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+  }
+
+  /* Fixed nav uses solid bg to prevent scroll-blur glitch */
+  .glass-nav {
+    background: rgba(10, 10, 26, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
   }
 
   .glass-button {
-    @apply bg-white/[0.08] backdrop-blur-md border border-white/[0.1] rounded-xl
-           px-4 py-2.5 font-medium transition-all duration-300
-           hover:bg-white/[0.14] hover:border-white/[0.16] active:scale-[0.97];
+    @apply bg-white/[0.08] border border-white/[0.1] rounded-xl
+           px-4 py-2.5 font-medium transition-all duration-200
+           active:scale-[0.95];
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
   }
 
   .glass-input {
-    @apply bg-white/[0.06] backdrop-blur-md border border-white/[0.1] rounded-xl
+    @apply bg-white/[0.06] border border-white/[0.1] rounded-xl
            px-4 py-3 w-full text-white placeholder-white/40
            focus:outline-none focus:border-primary-400/50 focus:bg-white/[0.08]
-           transition-all duration-300;
+           transition-all duration-200;
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
   }
 
   .gradient-text {
@@ -58,25 +94,24 @@
     @apply bg-gradient-to-r from-primary-500 to-purple-600 rounded-xl
            px-6 py-3 font-semibold text-white
            shadow-lg shadow-primary-500/25
-           hover:shadow-xl hover:shadow-primary-500/30 hover:from-primary-400 hover:to-purple-500
-           active:scale-[0.97] transition-all duration-300;
+           active:scale-[0.95] transition-all duration-200;
   }
 
   .btn-danger {
     @apply bg-gradient-to-r from-red-500 to-rose-600 rounded-xl
            px-6 py-3 font-semibold text-white
            shadow-lg shadow-red-500/25
-           active:scale-[0.97] transition-all duration-300;
+           active:scale-[0.95] transition-all duration-200;
   }
 
   .movie-card {
-    @apply glass overflow-hidden transition-all duration-500 hover:scale-[1.02]
-           hover:border-primary-400/30 hover:shadow-xl hover:shadow-primary-500/10;
+    @apply glass overflow-hidden cursor-pointer
+           active:scale-[0.97] transition-transform duration-200;
   }
 
   .nav-item {
     @apply flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl
-           text-white/50 transition-all duration-300;
+           text-white/50 transition-all duration-200;
   }
   .nav-item.active {
     @apply text-primary-400 bg-primary-400/10;

@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
-import { HiAdjustmentsHorizontal } from 'react-icons/hi2'
+import { AnimatePresence } from 'framer-motion'
 import api from '../api/client'
 import MovieCard from '../components/MovieCard'
+import MovieDetailModal from '../components/MovieDetailModal'
 import SearchBar from '../components/SearchBar'
-import Modal from '../components/Modal'
 
 const STATUSES = ['all', 'watchlist', 'watched', 'planned', 'dropped']
 
@@ -12,7 +11,7 @@ export default function Watchlist() {
   const [movies, setMovies] = useState([])
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('all')
-  const [editMovie, setEditMovie] = useState(null)
+  const [selectedMovie, setSelectedMovie] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -32,6 +31,10 @@ export default function Watchlist() {
     try {
       const res = await api.put(`/watchlist/movies/${id}`, data)
       setMovies(prev => prev.map(m => m.id === id ? res.data : m))
+      // Update selected movie if it's the one being edited
+      if (selectedMovie?.id === id) {
+        setSelectedMovie(res.data)
+      }
     } catch {}
   }
 
@@ -39,19 +42,8 @@ export default function Watchlist() {
     try {
       await api.delete(`/watchlist/movies/${id}`)
       setMovies(prev => prev.filter(m => m.id !== id))
+      setSelectedMovie(null)
     } catch {}
-  }
-
-  const handleEditSave = async () => {
-    if (!editMovie) return
-    await handleUpdate(editMovie.id, {
-      status: editMovie.status,
-      rating: editMovie.rating,
-      notes: editMovie.notes,
-      is_private: editMovie.is_private,
-      tags: editMovie.tags,
-    })
-    setEditMovie(null)
   }
 
   const filtered = movies.filter(m => {
@@ -72,7 +64,6 @@ export default function Watchlist() {
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Meine Watchlist</h1>
 
-      {/* Search & Filter */}
       <SearchBar value={search} onChange={setSearch} placeholder="Film suchen..." />
 
       {/* Status Tabs */}
@@ -81,10 +72,10 @@ export default function Watchlist() {
           <button
             key={s}
             onClick={() => setStatus(s)}
-            className={`shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ${
+            className={`shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
               status === s
                 ? 'bg-primary-500/20 text-primary-400 border border-primary-400/30'
-                : 'glass-light text-white/50 hover:text-white/80'
+                : 'bg-white/[0.04] border border-white/[0.06] text-white/50 active:bg-white/[0.08]'
             }`}
           >
             {s === 'all' ? 'Alle' : s.charAt(0).toUpperCase() + s.slice(1)}
@@ -100,6 +91,7 @@ export default function Watchlist() {
       {/* Grid */}
       {filtered.length === 0 ? (
         <div className="text-center py-16 text-white/30">
+          <p className="text-4xl mb-3">🎬</p>
           <p className="text-lg">Keine Filme gefunden</p>
           <p className="text-sm mt-1">Füge Filme über "Entdecken" hinzu</p>
         </div>
@@ -110,74 +102,21 @@ export default function Watchlist() {
               <MovieCard
                 key={movie.id}
                 movie={movie}
-                onUpdate={handleUpdate}
-                onDelete={handleDelete}
-                onEdit={setEditMovie}
+                onClick={setSelectedMovie}
               />
             ))}
           </AnimatePresence>
         </div>
       )}
 
-      {/* Edit Modal */}
-      <Modal open={!!editMovie} onClose={() => setEditMovie(null)} title="Film bearbeiten">
-        {editMovie && (
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm text-white/50 mb-1 block">Status</label>
-              <select
-                value={editMovie.status}
-                onChange={(e) => setEditMovie({ ...editMovie, status: e.target.value })}
-                className="glass-input"
-              >
-                <option value="watchlist">Watchlist</option>
-                <option value="watched">Watched</option>
-                <option value="planned">Planned</option>
-                <option value="dropped">Dropped</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-sm text-white/50 mb-1 block">Bewertung</label>
-              <div className="flex gap-2">
-                {[1, 2, 3, 4, 5].map(r => (
-                  <button
-                    key={r}
-                    onClick={() => setEditMovie({ ...editMovie, rating: r })}
-                    className={`w-10 h-10 rounded-xl text-sm font-medium transition-all ${
-                      editMovie.rating >= r
-                        ? 'bg-amber-400/20 text-amber-400 border border-amber-400/30'
-                        : 'glass-light text-white/30'
-                    }`}
-                  >
-                    {r}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label className="text-sm text-white/50 mb-1 block">Notizen</label>
-              <textarea
-                value={editMovie.notes || ''}
-                onChange={(e) => setEditMovie({ ...editMovie, notes: e.target.value })}
-                className="glass-input min-h-[80px] resize-none"
-              />
-            </div>
-            <div className="flex items-center gap-3">
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={editMovie.is_private}
-                  onChange={(e) => setEditMovie({ ...editMovie, is_private: e.target.checked })}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-white/10 rounded-full peer peer-checked:bg-primary-500/50 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full" />
-              </label>
-              <span className="text-sm text-white/60">Privat</span>
-            </div>
-            <button onClick={handleEditSave} className="btn-primary w-full">Speichern</button>
-          </div>
-        )}
-      </Modal>
+      {/* Detail Modal */}
+      <MovieDetailModal
+        movie={selectedMovie}
+        open={!!selectedMovie}
+        onClose={() => setSelectedMovie(null)}
+        onUpdate={handleUpdate}
+        onDelete={handleDelete}
+      />
     </div>
   )
 }

@@ -4,6 +4,7 @@ import { HiArrowLeft } from 'react-icons/hi2'
 import { AnimatePresence } from 'framer-motion'
 import api from '../api/client'
 import MovieCard from '../components/MovieCard'
+import MovieDetailModal from '../components/MovieDetailModal'
 import SearchBar from '../components/SearchBar'
 
 export default function FriendWatchlist() {
@@ -11,6 +12,7 @@ export default function FriendWatchlist() {
   const navigate = useNavigate()
   const [movies, setMovies] = useState([])
   const [search, setSearch] = useState('')
+  const [selectedMovie, setSelectedMovie] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -53,12 +55,19 @@ export default function FriendWatchlist() {
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
             <AnimatePresence>
               {filtered.map(movie => (
-                <MovieCard key={movie.id} movie={movie} readonly />
+                <MovieCard key={movie.id} movie={movie} onClick={setSelectedMovie} />
               ))}
             </AnimatePresence>
           </div>
         </>
       )}
+
+      <MovieDetailModal
+        movie={selectedMovie}
+        open={!!selectedMovie}
+        onClose={() => setSelectedMovie(null)}
+        readonly
+      />
     </div>
   )
 }
