@@ -17,6 +17,9 @@ export default function Discover() {
   const [detailLoading, setDetailLoading] = useState(false)
   const [watchlists, setWatchlists] = useState([])
   const [selectedWl, setSelectedWl] = useState(null)
+  const [addStatus, setAddStatus] = useState('watchlist')
+  const [addRating, setAddRating] = useState(null)
+  const [addNotes, setAddNotes] = useState('')
 
   useEffect(() => {
     api.get('/media/trending').then(res => setTrending(res.data.results || [])).catch(() => {})
@@ -45,6 +48,9 @@ export default function Discover() {
   const openDetail = async (item) => {
     const mediaType = item.media_type || (item.title ? 'movie' : 'tv')
     setDetail({ ...item, media_type: mediaType })
+    setAddStatus('watchlist')
+    setAddRating(null)
+    setAddNotes('')
     setDetailLoading(true)
     try {
       const res = await api.get(`/media/${mediaType}/${item.id}`)
@@ -54,13 +60,13 @@ export default function Discover() {
     }
   }
 
-  const addToWatchlist = async (item, wlId) => {
+  const addToWatchlist = async (item, { status, rating, notes } = {}) => {
     const mediaType = item.media_type || (item.title ? 'movie' : 'tv')
     const key = `${item.id}-${mediaType}`
     if (addedIds.has(key)) return
 
     try {
-      const params = wlId ? { watchlist_id: wlId } : (selectedWl ? { watchlist_id: selectedWl } : {})
+      const params = selectedWl ? { watchlist_id: selectedWl } : {}
       await api.post('/watchlist/movies', {
         title: item.title || item.name,
         year: (item.release_date || item.first_air_date || '').slice(0, 4),
@@ -71,6 +77,9 @@ export default function Discover() {
         media_type: mediaType,
         vote_average: item.vote_average,
         genres: item.genre_ids || item.genres?.map(g => g.id),
+        status: status || 'watchlist',
+        rating: rating || null,
+        notes: notes || null,
       }, { params })
       setAddedIds(prev => new Set([...prev, key]))
     } catch {}
@@ -256,44 +265,104 @@ export default function Discover() {
               </div>
             )}
 
-            {/* Watchlist Selector + Add */}
-            {watchlists.length > 1 && !isAdded(detail) && (
-              <div className="mb-3">
-                <label className="text-xs text-white/40 uppercase tracking-wider mb-2 block">Zu Watchlist hinzufügen</label>
-                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-                  {watchlists.map(wl => (
-                    <button
-                      key={wl.id}
-                      onClick={() => setSelectedWl(wl.id)}
-                      className={`shrink-0 px-3 py-2 rounded-xl text-xs font-medium flex items-center gap-1.5 transition-all ${
-                        selectedWl === wl.id
-                          ? 'bg-primary-500/20 text-primary-400 border border-primary-400/30'
-                          : 'bg-white/[0.04] text-white/50 border border-white/[0.06]'
-                      }`}
-                    >
-                      <span>{wl.icon}</span>
-                      <span className="truncate max-w-[100px]">{wl.name}</span>
-                    </button>
-                  ))}
+            {!isAdded(detail) && (
+              <div className="space-y-4 border-t border-white/[0.06] pt-4">
+                {/* Status */}
+                <div>
+                  <label className="text-xs text-white/40 uppercase tracking-wider mb-2 block">Status</label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[
+                      { v: 'watchlist', l: 'Watchlist', c: 'from-blue-500 to-cyan-400' },
+                      { v: 'watched', l: 'Gesehen', c: 'from-green-500 to-emerald-400' },
+                      { v: 'planned', l: 'Geplant', c: 'from-amber-500 to-yellow-400' },
+                      { v: 'dropped', l: 'Dropped', c: 'from-red-500 to-rose-400' },
+                    ].map(({ v, l, c }) => (
+                      <button
+                        key={v}
+                        onClick={() => setAddStatus(v)}
+                        className={`py-2 rounded-xl text-xs font-semibold transition-all active:scale-95 ${
+                          addStatus === v
+                            ? `bg-gradient-to-r ${c} text-white shadow-lg`
+                            : 'bg-white/[0.06] text-white/40'
+                        }`}
+                      >
+                        {l}
+                      </button>
+                    ))}
+                  </div>
                 </div>
+
+                {/* Rating */}
+                <div>
+                  <label className="text-xs text-white/40 uppercase tracking-wider mb-2 block">Bewertung</label>
+                  <div className="flex gap-1.5">
+                    {[1, 2, 3, 4, 5].map(r => (
+                      <button
+                        key={r}
+                        onClick={() => setAddRating(addRating === r ? null : r)}
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all active:scale-90 ${
+                          (addRating || 0) >= r
+                            ? 'bg-amber-400/20 text-amber-400 border border-amber-400/30'
+                            : 'bg-white/[0.06] text-white/20'
+                        }`}
+                      >
+                        <HiStar className="w-5 h-5" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label className="text-xs text-white/40 uppercase tracking-wider mb-2 block">Notizen</label>
+                  <textarea
+                    value={addNotes}
+                    onChange={(e) => setAddNotes(e.target.value)}
+                    placeholder="Optional: Notizen zum Film..."
+                    className="glass-input min-h-[60px] resize-none text-sm"
+                  />
+                </div>
+
+                {/* Watchlist Selector */}
+                {watchlists.length > 1 && (
+                  <div>
+                    <label className="text-xs text-white/40 uppercase tracking-wider mb-2 block">Watchlist</label>
+                    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                      {watchlists.map(wl => (
+                        <button
+                          key={wl.id}
+                          onClick={() => setSelectedWl(wl.id)}
+                          className={`shrink-0 px-3 py-2 rounded-xl text-xs font-medium flex items-center gap-1.5 transition-all ${
+                            selectedWl === wl.id
+                              ? 'bg-primary-500/20 text-primary-400 border border-primary-400/30'
+                              : 'bg-white/[0.04] text-white/50 border border-white/[0.06]'
+                          }`}
+                        >
+                          <span>{wl.icon}</span>
+                          <span className="truncate max-w-[100px]">{wl.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Add Button */}
+                <button
+                  onClick={() => addToWatchlist(detail, { status: addStatus, rating: addRating, notes: addNotes })}
+                  className="btn-primary w-full active:scale-[0.97]"
+                >
+                  <HiPlus className="w-4 h-4 inline mr-2" />Hinzufügen
+                </button>
               </div>
             )}
 
-            <button
-              onClick={() => { addToWatchlist(detail); }}
-              disabled={isAdded(detail)}
-              className={`w-full py-3 rounded-xl font-semibold text-sm transition-all active:scale-[0.97] ${
-                isAdded(detail)
-                  ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                  : 'btn-primary'
-              }`}
-            >
-              {isAdded(detail) ? (
-                <><HiCheck className="w-4 h-4 inline mr-2" />In deiner Watchlist</>
-              ) : (
-                <><HiPlus className="w-4 h-4 inline mr-2" />Zur Watchlist hinzufügen</>
-              )}
-            </button>
+            {isAdded(detail) && (
+              <div className="pt-4 border-t border-white/[0.06]">
+                <div className="w-full py-3 rounded-xl text-sm font-semibold text-center bg-green-500/20 text-green-400 border border-green-500/30">
+                  <HiCheck className="w-4 h-4 inline mr-2" />In deiner Watchlist
+                </div>
+              </div>
+            )}
           </div>
         )}
       </Modal>
