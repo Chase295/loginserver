@@ -1,104 +1,47 @@
-# This file is designed to run pre-built images from GitHub Container Registry (GHCR).
-# Replace 'YOUR_GITHUB_USERNAME_LOWERCASE' with your actual GitHub username in lowercase.
-# The image names should match those pushed by the GitHub Actions workflow.
-
-networks:
-  app_network:
-    driver: bridge
-
 services:
   nginx:
-    build:
-      context: ./nginx_image_build
-      dockerfile: Dockerfile
+    build: ./nginx
     ports:
       - "80:80"
-      # - "443:443" # Uncomment if you configure SSL in your Nginx image
     depends_on:
       - frontend
       - backend
-    networks:
-      - app_network
     restart: unless-stopped
 
   frontend:
-    build:
-      context: ./src/frontend
-      dockerfile: Dockerfile
+    build: ./frontend
     expose:
-      - "3000" # Internal port for Nginx to connect to
-    # environment: # Add any runtime environment variables needed by the frontend image itself
-      # Example:
-      # - REACT_APP_SOME_RUNTIME_CONFIG=value_from_compose
+      - "80"
     depends_on:
       - backend
-    networks:
-      - app_network
     restart: unless-stopped
 
   backend:
-    build:
-      context: ./src/backend
-      dockerfile: Dockerfile
+    build: ./backend
     expose:
-      - "8000" # Internal port for Nginx to connect to
-    environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/watchlist
-      # --- IMPORTANT: REPLACE THIS JWT_SECRET ---
-      - JWT_SECRET=!!!YOUR_STRONG_JWT_SECRET_HERE!!!
-      # --- TMDB Credentials (as provided) ---
-      - TMDB_API_KEY=baef77dbebea87e3a224ad917d2d5682
-      - TMDB_ACCESS_TOKEN=eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJiYWVmNzdkYmViZWE4N2UzYTIyNGFkOTE3ZDJkNTY4MiIsIm5iZiI6MTc0NjY0MDcyNS4wMjMsInN1YiI6IjY4MWI5ZjU1ZTU1MWI4OTBlNGRmOTUwOCIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.giM7pBG4eQbCUZPgiSdVF-FAmvv5FLPCVfzrSBoN1zY
-      # --- CORS Configuration ---
-      # Adjust if your Nginx is accessed via a different domain/port by users
-      # For http://localhost (default Nginx access from host):
-      - CORS_ALLOWED_ORIGINS=http://localhost
-      # If NODE_ENV is not set in the backend Dockerfile to 'production', you might want to set it here.
-      # It was set in the optimized backend Dockerfile, so this line is likely not needed.
-      # - NODE_ENV=production
-      - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,https://watch.chase295.de
+      - "8000"
+    env_file: .env
     depends_on:
-      - db
-    networks:
-      - app_network
-    restart: unless-stopped
-
-  testapi:
-    build:
-      context: ./src/testapi
-      dockerfile: Dockerfile
-    ports:
-      # Expose testapi directly if needed for testing from host, otherwise remove if not needed externally
-      - "8001:8001"
-    environment:
-      - BACKEND_URL=http://backend:8000
-      # --- IMPORTANT: REPLACE THIS JWT_SECRET (must match backend's JWT_SECRET) ---
-      - JWT_SECRET=!!!YOUR_STRONG_JWT_SECRET_HERE!!!
-      - TEST_USERNAME=testuser
-      - TEST_PASSWORD=password123
-      - TEST_EMAIL=test@example.com
-      # PYTHONDONTWRITEBYTECODE and PYTHONUNBUFFERED are set in the testapi Dockerfile.
-    depends_on:
-      - backend
-    networks:
-      - app_network
+      db:
+        condition: service_healthy
     restart: unless-stopped
 
   db:
-    image: postgres:15-alpine # Using alpine variant for smaller size
+    image: postgres:16-alpine
     environment:
-      - POSTGRES_USER=postgres
-      # IMPORTANT: For production, use a strong password and manage it via Docker secrets or a secure method.
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=watchlist
-    expose:
-      - "5432" # Internal port for backend to connect to
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-watchlist}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    networks:
-      - app_network
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
 volumes:
   postgres_data:
-    # driver: local # Default, can be explicit

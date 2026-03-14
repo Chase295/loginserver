@@ -1,1 +1,0 @@
-# Initialisierungsdatei für Schemas 

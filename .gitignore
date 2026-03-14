@@ -1,8 +1,9 @@
 # Dependencies
 node_modules/
-npm-debug.log
-yarn-debug.log
-yarn-error.log
+__pycache__/
+*.pyc
+.venv/
+venv/
 
 # Environment
 .env
@@ -12,6 +13,7 @@ yarn-error.log
 # Build
 dist/
 build/
+*.egg-info/
 
 # IDE
 .idea/
@@ -24,4 +26,5 @@ build/
 Thumbs.db
 
 # Docker
-tmp/ 
+tmp/
+postgres_data/
