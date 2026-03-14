@@ -176,6 +176,32 @@ async def unshare_watchlist(watchlist_id: int, user_id: int, user: User = Depend
     return {"message": "Unshared"}
 
 
+async def _auto_enrich(movies: list[Movie], db: AsyncSession):
+    """Auto-enrich movies missing poster from TMDB."""
+    tmdb = TMDBService()
+    for movie in movies:
+        if movie.tmdb_id and movie.media_type and not movie.poster_url:
+            try:
+                data = await tmdb.details(movie.media_type, movie.tmdb_id)
+                if data.get("poster_path"):
+                    movie.poster_url = data["poster_path"]
+                if not movie.backdrop_path and data.get("backdrop_path"):
+                    movie.backdrop_path = data["backdrop_path"]
+                if not movie.overview and data.get("overview"):
+                    movie.overview = data["overview"]
+                if not movie.vote_average and data.get("vote_average"):
+                    movie.vote_average = data["vote_average"]
+                if not movie.genres and data.get("genres"):
+                    movie.genres = [g["id"] for g in data["genres"]]
+                if not movie.year:
+                    date = data.get("release_date") or data.get("first_air_date") or ""
+                    if date:
+                        movie.year = date[:4]
+            except Exception:
+                pass
+    await db.flush()
+
+
 # --- Movies ---
 @router.get("/movies", response_model=list[MovieOut])
 async def get_movies(
@@ -203,7 +229,11 @@ async def get_movies(
             select(Movie).where(Movie.watchlist_id.in_(all_ids)).order_by(Movie.created_at.desc())
         )
 
-    return result.scalars().all()
+    movies = result.scalars().all()
+    to_enrich = [m for m in movies if m.tmdb_id and not m.poster_url]
+    if to_enrich:
+        await _auto_enrich(to_enrich, db)
+    return movies
 
 
 @router.post("/movies", response_model=MovieOut, status_code=201)
@@ -354,6 +384,9 @@ async def get_user_watchlist(username: str, user: User = Depends(get_current_use
 
         all_movies.extend(movies)
 
+    to_enrich = [m for m in all_movies if m.tmdb_id and not m.poster_url]
+    if to_enrich:
+        await _auto_enrich(to_enrich, db)
     return all_movies
 
 

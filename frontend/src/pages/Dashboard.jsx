@@ -14,23 +14,14 @@ export default function Dashboard() {
   const [recentMovies, setRecentMovies] = useState([])
 
   useEffect(() => {
-    api.get('/watchlist/movies').then(async (res) => {
-      let movies = res.data
+    api.get('/watchlist/movies').then(res => {
+      const movies = res.data
       setRecentMovies(movies.slice(0, 6))
       setStats({
         total: movies.length,
         watched: movies.filter(m => m.status === 'watched').length,
         planned: movies.filter(m => m.status === 'watchlist').length,
       })
-
-      // Auto-enrich movies missing posters
-      const toEnrich = movies.filter(m => m.tmdb_id && !m.poster_url).slice(0, 6)
-      for (const movie of toEnrich) {
-        try {
-          const enriched = await api.post(`/watchlist/movies/${movie.id}/enrich`)
-          setRecentMovies(prev => prev.map(m => m.id === movie.id ? enriched.data : m))
-        } catch {}
-      }
     }).catch(() => {})
 
     api.get('/media/trending').then(res => {
