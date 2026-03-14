@@ -78,6 +78,7 @@ class Movie(Base):
     rating: Mapped[int | None] = mapped_column(Integer)
     notes: Mapped[str | None] = mapped_column(Text)
     tags: Mapped[list | None] = mapped_column(JSONB, default=[])
+    watch_progress: Mapped[dict | None] = mapped_column(JSONB, default={})
     is_private: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 

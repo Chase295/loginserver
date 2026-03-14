@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { HiStar, HiTrash, HiEye, HiLockClosed, HiLockOpen, HiPlus, HiXMark } from 'react-icons/hi2'
 import Modal from './Modal'
+import SeasonTracker from './SeasonTracker'
 
 const TMDB_IMG = 'https://image.tmdb.org/t/p'
 
@@ -36,6 +37,7 @@ export default function MovieDetailModal({ movie, open, onClose, onUpdate, onDel
       notes: editData.notes,
       is_private: editData.is_private,
       tags: editData.tags,
+      watch_progress: editData.watch_progress,
     })
     setEditData(null)
     onClose()
@@ -203,6 +205,24 @@ export default function MovieDetailModal({ movie, open, onClose, onUpdate, onDel
           </div>
         )}
       </div>
+
+      {/* Season Tracker (TV only) */}
+      {movie.media_type === 'tv' && movie.tmdb_id && (
+        <div className="mb-4">
+          <SeasonTracker
+            tmdbId={movie.tmdb_id}
+            progress={isEditing ? (editData.watch_progress || {}) : (movie.watch_progress || {})}
+            onChange={(wp) => {
+              if (isEditing) {
+                setEditData({ ...editData, watch_progress: wp })
+              } else if (onUpdate) {
+                onUpdate(movie.id, { watch_progress: wp })
+              }
+            }}
+            readonly={readonly}
+          />
+        </div>
+      )}
 
       {/* Notes */}
       <div className="mb-4">

@@ -30,3 +30,6 @@ class TMDBService:
 
     async def details(self, media_type: str, tmdb_id: int) -> dict:
         return await self._get(f"/{media_type}/{tmdb_id}", {"language": "de-DE", "append_to_response": "credits,videos"})
+
+    async def season(self, tmdb_id: int, season_number: int) -> dict:
+        return await self._get(f"/tv/{tmdb_id}/season/{season_number}", {"language": "de-DE"})

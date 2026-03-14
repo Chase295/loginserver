@@ -56,6 +56,7 @@ class MovieUpdate(BaseModel):
     rating: int | None = None
     notes: str | None = None
     tags: list[TagSchema] | None = None
+    watch_progress: dict | None = None
     is_private: bool | None = None
 
 
@@ -74,6 +75,7 @@ class MovieOut(BaseModel):
     rating: int | None
     notes: str | None
     tags: list | None
+    watch_progress: dict | None = None
     is_private: bool
     watchlist_id: int | None = None
     created_at: datetime
