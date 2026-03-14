@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { HiPlus, HiPencil, HiTrash, HiShare, HiChevronDown, HiUserPlus, HiXMark } from 'react-icons/hi2'
+import { HiPlus, HiPencil, HiTrash, HiShare, HiChevronDown, HiUserPlus, HiXMark, HiAdjustmentsHorizontal, HiStar } from 'react-icons/hi2'
 import api from '../api/client'
 import MovieCard from '../components/MovieCard'
 import MovieDetailModal from '../components/MovieDetailModal'
@@ -24,6 +24,11 @@ export default function Watchlist() {
   const [newWl, setNewWl] = useState({ name: '', icon: '🎬', visibility: 'friends' })
   const [shareUsername, setShareUsername] = useState('')
   const [sharePermission, setSharePermission] = useState('view')
+  const [showFilters, setShowFilters] = useState(false)
+  const [filterRating, setFilterRating] = useState(null)
+  const [filterTag, setFilterTag] = useState(null)
+  const [filterType, setFilterType] = useState(null) // 'movie' | 'tv'
+  const [sortBy, setSortBy] = useState('newest') // newest, oldest, rating, title
 
   useEffect(() => {
     fetchWatchlists()
@@ -133,11 +138,40 @@ export default function Watchlist() {
   }
 
   const activeWatchlist = watchlists.find(w => w.id === activeWl)
-  const filtered = movies.filter(m => {
-    if (status !== 'all' && m.status !== status) return false
-    if (search && !m.title.toLowerCase().includes(search.toLowerCase())) return false
-    return true
-  })
+
+  // Collect all unique tags from movies
+  const allTags = [...new Map(
+    movies.flatMap(m => (m.tags || []).filter(t => !t.is_private))
+      .map(t => [t.label, t])
+  ).values()]
+
+  const hasActiveFilters = filterRating || filterTag || filterType || sortBy !== 'newest'
+
+  const filtered = movies
+    .filter(m => {
+      if (status !== 'all' && m.status !== status) return false
+      if (search && !m.title.toLowerCase().includes(search.toLowerCase())) return false
+      if (filterRating && (m.rating || 0) < filterRating) return false
+      if (filterTag && !(m.tags || []).some(t => t.label === filterTag)) return false
+      if (filterType && m.media_type !== filterType) return false
+      return true
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'oldest': return new Date(a.created_at) - new Date(b.created_at)
+        case 'rating': return (b.rating || 0) - (a.rating || 0)
+        case 'title': return a.title.localeCompare(b.title)
+        case 'tmdb': return (b.vote_average || 0) - (a.vote_average || 0)
+        default: return new Date(b.created_at) - new Date(a.created_at)
+      }
+    })
+
+  const clearFilters = () => {
+    setFilterRating(null)
+    setFilterTag(null)
+    setFilterType(null)
+    setSortBy('newest')
+  }
 
   return (
     <div className="space-y-4">
@@ -222,7 +256,145 @@ export default function Watchlist() {
           </div>
         )}
 
-      <SearchBar value={search} onChange={setSearch} placeholder="Film suchen..." />
+      {/* Search + Filter toggle */}
+      <div className="flex gap-2">
+        <div className="flex-1">
+          <SearchBar value={search} onChange={setSearch} placeholder="Film suchen..." />
+        </div>
+        <button
+          onClick={() => setShowFilters(!showFilters)}
+          className={`shrink-0 w-12 rounded-xl flex items-center justify-center transition-all ${
+            hasActiveFilters
+              ? 'bg-primary-500/20 text-primary-400 border border-primary-400/30'
+              : 'bg-white/[0.06] border border-white/[0.1] text-white/40'
+          }`}
+        >
+          <HiAdjustmentsHorizontal className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* Filter Panel */}
+      {showFilters && (
+        <div className="glass p-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">Filter & Sortierung</span>
+            {hasActiveFilters && (
+              <button onClick={clearFilters} className="text-xs text-primary-400 active:opacity-70">
+                Zurücksetzen
+              </button>
+            )}
+          </div>
+
+          {/* Sort */}
+          <div>
+            <label className="text-xs text-white/40 uppercase tracking-wider mb-2 block">Sortierung</label>
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+              {[
+                { v: 'newest', l: 'Neueste' },
+                { v: 'oldest', l: 'Älteste' },
+                { v: 'rating', l: 'Mein Rating' },
+                { v: 'tmdb', l: 'TMDB Rating' },
+                { v: 'title', l: 'A-Z' },
+              ].map(({ v, l }) => (
+                <button
+                  key={v}
+                  onClick={() => setSortBy(v)}
+                  className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    sortBy === v
+                      ? 'bg-primary-500/20 text-primary-400 border border-primary-400/30'
+                      : 'bg-white/[0.04] text-white/40'
+                  }`}
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Rating Filter */}
+          <div>
+            <label className="text-xs text-white/40 uppercase tracking-wider mb-2 block">Mindest-Rating</label>
+            <div className="flex gap-1.5">
+              {[1, 2, 3, 4, 5].map(r => (
+                <button
+                  key={r}
+                  onClick={() => setFilterRating(filterRating === r ? null : r)}
+                  className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all active:scale-90 ${
+                    filterRating && filterRating <= r
+                      ? 'bg-amber-400/20 text-amber-400 border border-amber-400/30'
+                      : filterRating && r < filterRating
+                        ? 'bg-amber-400/20 text-amber-400 border border-amber-400/30'
+                        : 'bg-white/[0.06] text-white/20'
+                  } ${filterRating === r ? 'ring-2 ring-amber-400/50' : ''}`}
+                >
+                  <HiStar className="w-4 h-4" />
+                </button>
+              ))}
+              {filterRating && (
+                <span className="self-center text-xs text-white/40 ml-1">≥ {filterRating}</span>
+              )}
+            </div>
+          </div>
+
+          {/* Type Filter */}
+          <div>
+            <label className="text-xs text-white/40 uppercase tracking-wider mb-2 block">Typ</label>
+            <div className="flex gap-2">
+              {[
+                { v: null, l: 'Alle' },
+                { v: 'movie', l: '🎬 Filme' },
+                { v: 'tv', l: '📺 Serien' },
+              ].map(({ v, l }) => (
+                <button
+                  key={String(v)}
+                  onClick={() => setFilterType(v)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    filterType === v
+                      ? 'bg-primary-500/20 text-primary-400 border border-primary-400/30'
+                      : 'bg-white/[0.04] text-white/40'
+                  }`}
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Tag Filter */}
+          {allTags.length > 0 && (
+            <div>
+              <label className="text-xs text-white/40 uppercase tracking-wider mb-2 block">Tag</label>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  onClick={() => setFilterTag(null)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                    !filterTag
+                      ? 'bg-primary-500/20 text-primary-400 border border-primary-400/30'
+                      : 'bg-white/[0.04] text-white/40'
+                  }`}
+                >
+                  Alle
+                </button>
+                {allTags.map(tag => (
+                  <button
+                    key={tag.label}
+                    onClick={() => setFilterTag(filterTag === tag.label ? null : tag.label)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                      filterTag === tag.label ? 'ring-1 ring-white/30' : ''
+                    }`}
+                    style={{
+                      backgroundColor: `${tag.color}${filterTag === tag.label ? '30' : '15'}`,
+                      color: tag.color,
+                    }}
+                  >
+                    {tag.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Status Tabs */}
       <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
@@ -245,6 +417,13 @@ export default function Watchlist() {
           </button>
         ))}
       </div>
+
+      {/* Results info */}
+      {hasActiveFilters && !loading && (
+        <p className="text-xs text-white/30">
+          {filtered.length} von {movies.length} Titeln
+        </p>
+      )}
 
       {/* Grid */}
       {loading ? (
