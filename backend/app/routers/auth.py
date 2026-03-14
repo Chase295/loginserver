@@ -22,7 +22,7 @@ async def register(data: UserRegister, db: AsyncSession = Depends(get_db)):
     db.add(user)
     await db.flush()
 
-    watchlist = Watchlist(user_id=user.id)
+    watchlist = Watchlist(owner_id=user.id, name="Meine Watchlist", icon="🎬", is_default=True)
     db.add(watchlist)
     await db.flush()
 

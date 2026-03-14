@@ -25,19 +25,38 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
-    watchlist: Mapped["Watchlist"] = relationship(back_populates="user", uselist=False)
+    watchlists: Mapped[list["Watchlist"]] = relationship(
+        back_populates="owner", foreign_keys="Watchlist.owner_id", cascade="all, delete-orphan"
+    )
 
 
 class Watchlist(Base):
     __tablename__ = "watchlists"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), unique=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String(200), nullable=False, default="Meine Watchlist")
+    icon: Mapped[str] = mapped_column(String(10), default="🎬")
     visibility: Mapped[str] = mapped_column(String(20), default="friends")
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
-    user: Mapped["User"] = relationship(back_populates="watchlist")
+    owner: Mapped["User"] = relationship(back_populates="watchlists", foreign_keys=[owner_id])
     movies: Mapped[list["Movie"]] = relationship(back_populates="watchlist", cascade="all, delete-orphan")
+    shares: Mapped[list["WatchlistShare"]] = relationship(back_populates="watchlist", cascade="all, delete-orphan")
+
+
+class WatchlistShare(Base):
+    __tablename__ = "watchlist_shares"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    watchlist_id: Mapped[int] = mapped_column(ForeignKey("watchlists.id", ondelete="CASCADE"))
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    permission: Mapped[str] = mapped_column(String(20), default="view")  # view / edit
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    watchlist: Mapped["Watchlist"] = relationship(back_populates="shares")
+    user: Mapped["User"] = relationship()
 
 
 class Movie(Base):

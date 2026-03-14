@@ -15,11 +15,18 @@ export default function Discover() {
   const [tab, setTab] = useState('trending')
   const [detail, setDetail] = useState(null)
   const [detailLoading, setDetailLoading] = useState(false)
+  const [watchlists, setWatchlists] = useState([])
+  const [selectedWl, setSelectedWl] = useState(null)
 
   useEffect(() => {
     api.get('/media/trending').then(res => setTrending(res.data.results || [])).catch(() => {})
     api.get('/watchlist/movies').then(res => {
       setAddedIds(new Set(res.data.map(m => `${m.tmdb_id}-${m.media_type}`)))
+    }).catch(() => {})
+    api.get('/watchlist/lists').then(res => {
+      setWatchlists(res.data)
+      const def = res.data.find(w => w.is_default)
+      if (def) setSelectedWl(def.id)
     }).catch(() => {})
   }, [])
 
@@ -47,12 +54,13 @@ export default function Discover() {
     }
   }
 
-  const addToWatchlist = async (item) => {
+  const addToWatchlist = async (item, wlId) => {
     const mediaType = item.media_type || (item.title ? 'movie' : 'tv')
     const key = `${item.id}-${mediaType}`
     if (addedIds.has(key)) return
 
     try {
+      const params = wlId ? { watchlist_id: wlId } : (selectedWl ? { watchlist_id: selectedWl } : {})
       await api.post('/watchlist/movies', {
         title: item.title || item.name,
         year: (item.release_date || item.first_air_date || '').slice(0, 4),
@@ -63,7 +71,7 @@ export default function Discover() {
         media_type: mediaType,
         vote_average: item.vote_average,
         genres: item.genre_ids || item.genres?.map(g => g.id),
-      })
+      }, { params })
       setAddedIds(prev => new Set([...prev, key]))
     } catch {}
   }
@@ -253,7 +261,29 @@ export default function Discover() {
               </div>
             )}
 
-            {/* Add button */}
+            {/* Watchlist Selector + Add */}
+            {watchlists.length > 1 && !isAdded(detail) && (
+              <div className="mb-3">
+                <label className="text-xs text-white/40 uppercase tracking-wider mb-2 block">Zu Watchlist hinzufügen</label>
+                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                  {watchlists.map(wl => (
+                    <button
+                      key={wl.id}
+                      onClick={() => setSelectedWl(wl.id)}
+                      className={`shrink-0 px-3 py-2 rounded-xl text-xs font-medium flex items-center gap-1.5 transition-all ${
+                        selectedWl === wl.id
+                          ? 'bg-primary-500/20 text-primary-400 border border-primary-400/30'
+                          : 'bg-white/[0.04] text-white/50 border border-white/[0.06]'
+                      }`}
+                    >
+                      <span>{wl.icon}</span>
+                      <span className="truncate max-w-[100px]">{wl.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <button
               onClick={() => { addToWatchlist(detail); }}
               disabled={isAdded(detail)}

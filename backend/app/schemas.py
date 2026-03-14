@@ -75,6 +75,37 @@ class MovieOut(BaseModel):
     notes: str | None
     tags: list | None
     is_private: bool
+    watchlist_id: int | None = None
+    created_at: datetime
+
+
+class WatchlistCreate(BaseModel):
+    name: str
+    icon: str = "🎬"
+    visibility: str = "friends"
+
+
+class WatchlistUpdate(BaseModel):
+    name: str | None = None
+    icon: str | None = None
+    visibility: str | None = None
+
+
+class WatchlistShareCreate(BaseModel):
+    username: str
+    permission: str = "view"  # view / edit
+
+
+class WatchlistOut(BaseModel):
+    id: int
+    name: str
+    icon: str
+    owner_id: int
+    owner_username: str | None = None
+    visibility: str
+    is_default: bool
+    movie_count: int = 0
+    shared_with: list[dict] = []
     created_at: datetime
 
 
