@@ -47,6 +47,15 @@ export default function Watchlist() {
       const params = activeWl ? { watchlist_id: activeWl } : {}
       const res = await api.get('/watchlist/movies', { params })
       setMovies(res.data)
+
+      // Auto-enrich movies missing poster/metadata from TMDB
+      const toEnrich = res.data.filter(m => m.tmdb_id && !m.poster_url)
+      for (const movie of toEnrich) {
+        try {
+          const enriched = await api.post(`/watchlist/movies/${movie.id}/enrich`)
+          setMovies(prev => prev.map(m => m.id === movie.id ? enriched.data : m))
+        } catch {}
+      }
     } catch {} finally {
       setLoading(false)
     }

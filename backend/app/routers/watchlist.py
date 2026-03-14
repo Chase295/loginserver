@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..auth import get_current_user
 from ..database import get_db
 from ..models import Friend, Movie, User, Watchlist, WatchlistShare
+from ..services.tmdb import TMDBService
 from ..schemas import (
     MovieCreate,
     MovieOut,
@@ -248,6 +249,45 @@ async def update_movie(movie_id: int, data: MovieUpdate, user: User = Depends(ge
 
     for key, value in data.model_dump(exclude_unset=True, mode="json").items():
         setattr(movie, key, value)
+    await db.flush()
+    await db.refresh(movie)
+    return movie
+
+
+@router.post("/movies/{movie_id}/enrich", response_model=MovieOut)
+async def enrich_movie(movie_id: int, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Fetch missing metadata from TMDB for a movie."""
+    result = await db.execute(select(Movie).where(Movie.id == movie_id))
+    movie = result.scalar_one_or_none()
+    if not movie:
+        raise HTTPException(status_code=404)
+
+    await get_accessible_watchlist(movie.watchlist_id, user.id, db)
+
+    if not movie.tmdb_id or not movie.media_type:
+        raise HTTPException(status_code=400, detail="No TMDB ID")
+
+    tmdb = TMDBService()
+    try:
+        data = await tmdb.details(movie.media_type, movie.tmdb_id)
+    except Exception:
+        raise HTTPException(status_code=502, detail="TMDB fetch failed")
+
+    if not movie.poster_url and data.get("poster_path"):
+        movie.poster_url = data["poster_path"]
+    if not movie.backdrop_path and data.get("backdrop_path"):
+        movie.backdrop_path = data["backdrop_path"]
+    if not movie.overview and data.get("overview"):
+        movie.overview = data["overview"]
+    if not movie.vote_average and data.get("vote_average"):
+        movie.vote_average = data["vote_average"]
+    if not movie.genres and data.get("genres"):
+        movie.genres = [g["id"] for g in data["genres"]]
+    if not movie.year:
+        date = data.get("release_date") or data.get("first_air_date") or ""
+        if date:
+            movie.year = date[:4]
+
     await db.flush()
     await db.refresh(movie)
     return movie
