@@ -13,28 +13,26 @@ export default function Modal({ open, onClose, title, children, large }) {
   return (
     <AnimatePresence>
       {open && (
-        <>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/70 z-[60]"
+            className="absolute inset-0 bg-black/70"
           />
 
+          {/* Modal */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
+            initial={{ opacity: 0, scale: 0.93 }}
             animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
+            exit={{ opacity: 0, scale: 0.93 }}
             transition={{ duration: 0.15 }}
-            className={`fixed z-[60]
-              inset-x-3 top-1/2 -translate-y-1/2
-              mx-auto ${large ? 'max-w-2xl' : 'max-w-lg'}
-              rounded-2xl
-              bg-[#12122e] border border-white/[0.1]
-              max-h-[85dvh]
-              flex flex-col
+            className={`relative w-full ${large ? 'max-w-2xl' : 'max-w-lg'}
+              rounded-2xl bg-[#12122e] border border-white/[0.1]
+              max-h-[85dvh] flex flex-col
             `}
             style={{
               boxShadow: '0 24px 48px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)',
@@ -51,7 +49,7 @@ export default function Modal({ open, onClose, title, children, large }) {
               {children}
             </div>
           </motion.div>
-        </>
+        </div>
       )}
     </AnimatePresence>
   )
