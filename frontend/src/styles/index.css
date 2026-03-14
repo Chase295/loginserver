@@ -7,15 +7,22 @@
     -webkit-tap-highlight-color: transparent;
   }
 
-  html {
-    overflow-y: scroll;
+  html, body {
+    @apply bg-[#0a0a1a] text-white font-sans antialiased;
+    height: 100%;
+    overflow: hidden;
     overscroll-behavior: none;
   }
 
-  body {
-    @apply bg-[#0a0a1a] text-white font-sans antialiased;
-    min-height: 100dvh;
-    overflow-x: hidden;
+  #root {
+    height: 100%;
+  }
+
+  /* Desktop: allow normal body scroll */
+  @media (min-width: 768px) {
+    body {
+      overflow: auto;
+    }
   }
 
   /* Hide scrollbar on horizontal scroll containers */

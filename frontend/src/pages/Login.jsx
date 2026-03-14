@@ -26,7 +26,7 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="h-[100dvh] flex items-center justify-center p-4 relative overflow-auto">
       {/* Background orbs */}
       <div className="absolute top-1/4 -left-32 w-64 h-64 bg-primary-500/20 rounded-full blur-[100px]" />
       <div className="absolute bottom-1/4 -right-32 w-64 h-64 bg-purple-500/20 rounded-full blur-[100px]" />
