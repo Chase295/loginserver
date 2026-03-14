@@ -328,6 +328,12 @@ async def get_user_watchlist(username: str, user: User = Depends(get_current_use
     result = await db.execute(select(Watchlist).where(Watchlist.owner_id == target_user.id))
     watchlists = result.scalars().all()
 
+    if target_user.id != user.id and not is_friend:
+        # Non-friends can only see public watchlists
+        has_public = any(wl.visibility == "public" for wl in watchlists)
+        if not has_public:
+            raise HTTPException(status_code=403, detail="Not friends")
+
     all_movies = []
     for wl in watchlists:
         if wl.visibility == "private" and target_user.id != user.id:
