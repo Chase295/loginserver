@@ -100,7 +100,9 @@ async def sync_overview(user: User = Depends(get_current_user), db: AsyncSession
 
     total = 0
     movies_count = 0
+    movies_watched = 0
     series_count = 0
+    series_watched = 0
     watched = 0
     watching = 0
     episodes_watched = 0
@@ -112,8 +114,12 @@ async def sync_overview(user: User = Depends(get_current_user), db: AsyncSession
         for m in all_movies:
             if m.media_type == "movie":
                 movies_count += 1
+                if m.status == "watched":
+                    movies_watched += 1
             else:
                 series_count += 1
+                if m.status == "watched":
+                    series_watched += 1
             by_status[m.status] = by_status.get(m.status, 0) + 1
             if m.status == "watched":
                 watched += 1
@@ -188,7 +194,8 @@ async def sync_overview(user: User = Depends(get_current_user), db: AsyncSession
 
     return {
         "watchlist": {
-            "total": total, "movies": movies_count, "series": series_count,
+            "total": total, "movies": movies_count, "movies_watched": movies_watched,
+            "series": series_count, "series_watched": series_watched,
             "watched": watched, "watching": watching, "episodes_watched": episodes_watched,
             "by_status": by_status,
         },

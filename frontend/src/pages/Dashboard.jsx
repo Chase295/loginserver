@@ -30,7 +30,8 @@ export default function Dashboard() {
       const wl = res.data.watchlist
       setStats({
         total: wl.total, watched: wl.watched, planned: wl.by_status?.watchlist || 0,
-        movies: wl.movies, moviesWatched: 0, series: wl.series, seriesWatched: 0,
+        movies: wl.movies, moviesWatched: wl.movies_watched || 0,
+        series: wl.series, seriesWatched: wl.series_watched || 0,
         episodes: wl.episodes_watched,
       })
     }).catch(() => {})
