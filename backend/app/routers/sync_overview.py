@@ -167,7 +167,7 @@ async def sync_overview(user: User = Depends(get_current_user), db: AsyncSession
         {"name": "Jellyfin Watch-History", "interval": "10 Min", "type": "auto", "active": jf_info["connected"]},
         {"name": "Plex Server Discovery", "interval": "1 Stunde", "type": "auto", "active": plex_info["connected"]},
         {"name": "Tautulli Sync", "interval": "30 Min", "type": "auto", "active": tautulli_info["connected"]},
-        {"name": "Voller Plex+Jellyfin Sync", "interval": "Täglich 3:00", "type": "nightly", "active": True},
+        {"name": "Voller Plex+Jellyfin+Tautulli Sync", "interval": "Täglich 3:00", "type": "nightly", "active": True},
         {"name": "Status → Plex/Jellyfin", "interval": "Sofort", "type": "realtime", "active": True},
         {"name": "Episoden → Plex/Jellyfin", "interval": "Sofort", "type": "realtime", "active": True},
         {"name": "Watchlist → Plex Merkliste", "interval": "Sofort", "type": "realtime", "active": plex_info["connected"]},
