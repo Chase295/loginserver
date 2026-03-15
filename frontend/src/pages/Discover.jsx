@@ -80,16 +80,24 @@ export default function Discover() {
     }).catch(() => {})
   }, [])
 
-  const search = useCallback(async () => {
-    if (!query.trim()) return
+  const search = useCallback(async (q) => {
+    const term = q || query
+    if (!term.trim()) return
     setLoading(true)
     try {
-      const res = await api.get('/media/search', { params: { q: query } })
+      const res = await api.get('/media/search', { params: { q: term } })
       setResults(res.data.results || [])
       setTab('search')
     } catch {} finally {
       setLoading(false)
     }
+  }, [query])
+
+  // Auto-search with debounce
+  useEffect(() => {
+    if (!query.trim() || query.length < 2) return
+    const timer = setTimeout(() => search(query), 400)
+    return () => clearTimeout(timer)
   }, [query])
 
   const openDetail = async (item) => {
