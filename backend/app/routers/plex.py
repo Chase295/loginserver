@@ -311,7 +311,7 @@ async def _extract_tmdb_id(url: str, token: str, rating_key: str) -> int | None:
     return None
 
 
-async def _sync_tv_show(url: str, token: str, rating_key: str, tmdb_id: int, title: str, year, db, default_wl) -> dict:
+async def _sync_tv_show(url: str, token: str, rating_key: str, tmdb_id: int, title: str, year, db, default_wl, all_wl_ids=None) -> dict:
     """Sync a single TV show — check each episode individually."""
     try:
         from ..services.plex import _request
@@ -353,7 +353,8 @@ async def _sync_tv_show(url: str, token: str, rating_key: str, tmdb_id: int, tit
         status = "watched" if is_complete else "watching"
 
         # Find or create in watchlist
-        existing = await db.execute(select(Movie).where(Movie.watchlist_id.in_(all_wl_ids), Movie.tmdb_id == tmdb_id))
+        search_wl_ids = all_wl_ids or [default_wl.id]
+        existing = await db.execute(select(Movie).where(Movie.watchlist_id.in_(search_wl_ids), Movie.tmdb_id == tmdb_id))
         movie = existing.scalars().first()
 
         if movie:
@@ -464,7 +465,7 @@ async def _run_full_plex_sync(user_id: int):
                                         db.add(Movie(watchlist_id=default_wl.id, title=item.get("title", "Unknown"), year=str(item.get("year", "")) if item.get("year") else None, tmdb_id=tmdb_id, media_type="movie", status="watched"))
                                         added += 1
                                 else:
-                                    result_tv = await _sync_tv_show(srv["url"], srv["token"], rating_key, tmdb_id, item.get("title", "Unknown"), item.get("year"), db, default_wl)
+                                    result_tv = await _sync_tv_show(srv["url"], srv["token"], rating_key, tmdb_id, item.get("title", "Unknown"), item.get("year"), db, default_wl, all_wl_ids)
                                     if result_tv["action"] == "added":
                                         added += 1
                                     elif result_tv["action"] == "updated":

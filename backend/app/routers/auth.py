@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 async def _auto_setup_plex_user(user_id: int, plex_token: str):
     """Background: discover Plex servers + run full sync for new user."""
+    logger.warning(f"Auto-setup STARTING for user {user_id}")
     try:
         async with async_session() as db:
             # 1. Discover all Plex servers
@@ -128,7 +129,7 @@ async def plex_create_pin():
 
 
 @router.post("/plex/callback")
-async def plex_callback(data: dict, db: AsyncSession = Depends(get_db)):
+async def plex_callback(data: dict, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     """Step 2: Check if PIN was claimed, get token, login/register."""
     pin_id = data.get("pin_id")
     if not pin_id:
@@ -222,7 +223,8 @@ async def plex_callback(data: dict, db: AsyncSession = Depends(get_db)):
     # Trigger auto-setup for new users in background
     if is_new:
         import asyncio
-        asyncio.create_task(_auto_setup_plex_user(user.id, auth_token))
+        loop = asyncio.get_event_loop()
+        loop.create_task(_auto_setup_plex_user(user.id, auth_token))
 
     return {
         "access_token": create_token(user.id, user.username),
