@@ -241,17 +241,20 @@ async def _get_user_servers(user: User, db) -> list[dict]:
 
 @router.get("/status/{tmdb_id}")
 async def plex_status(tmdb_id: int, media_type: str = Query("movie"), user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    """Check if a movie/show exists on any of the user's Plex servers."""
-    found_servers = []
+    """Check if a movie/show exists on any of the user's Plex servers. Parallel with timeout."""
+    import asyncio
     user_servers = await _get_user_servers(user, db)
 
-    for srv in user_servers:
+    async def check_server(srv):
         try:
             token = srv.get("token", user.plex_token)
-            item = await plex_service.find_by_guid(srv["url"], token, tmdb_id, media_type)
+            item = await asyncio.wait_for(
+                plex_service.find_by_guid(srv["url"], token, tmdb_id, media_type),
+                timeout=8,
+            )
             if not item:
-                continue
-            found_servers.append({
+                return None
+            return {
                 "server_name": srv["name"],
                 "ratingKey": item.get("ratingKey"),
                 "title": item.get("title"),
@@ -263,9 +266,12 @@ async def plex_status(tmdb_id: int, media_type: str = Query("movie"), user: User
                 "fileSize": item.get("fileSize"),
                 "viewCount": item.get("viewCount", 0),
                 "lastViewedAt": item.get("lastViewedAt"),
-            })
+            }
         except Exception:
-            continue
+            return None
+
+    results = await asyncio.gather(*[check_server(srv) for srv in user_servers])
+    found_servers = [r for r in results if r]
 
     return {"found": len(found_servers) > 0, "servers": found_servers}
 

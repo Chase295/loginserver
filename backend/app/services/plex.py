@@ -196,27 +196,25 @@ async def get_history(url: str, token: str, start: int = 0, size: int = 50) -> d
     }
 
 
-async def find_by_guid(url: str, token: str, tmdb_id: int, media_type: str) -> dict | None:
-    """Find an item on Plex by TMDB ID. Searches all matching libraries."""
-    libraries = await get_libraries(url, token)
-    plex_type = "movie" if media_type == "movie" else "show"
-    target_guid = f"tmdb://{tmdb_id}"
+import time as _time
 
-    for lib in libraries:
-        if lib["type"] != plex_type:
-            continue
+# Cache: url+type -> {tmdb_id: ratingKey, "_expires": timestamp}
+_guid_cache: dict[str, dict] = {}
 
-        # Method 1: Direct GUID filter (works on some servers)
-        try:
-            data = await _request(url, token, f"/library/sections/{lib['id']}/all", params={"guid": target_guid})
-            items = data.get("MediaContainer", {}).get("Metadata", [])
-            if items:
-                return _format_item_detailed(items[0])
-        except Exception:
-            pass
 
-        # Method 2: Scan with includeGuids and match
-        try:
+async def _build_guid_cache(url: str, token: str, plex_type: str) -> dict:
+    """Build a TMDB→ratingKey cache for a server. Cached for 10 min."""
+    cache_key = f"{url}_{plex_type}"
+    cached = _guid_cache.get(cache_key)
+    if cached and cached.get("_expires", 0) > _time.time():
+        return cached
+
+    mapping = {"_expires": _time.time() + 600}
+    try:
+        libraries = await get_libraries(url, token)
+        for lib in libraries:
+            if lib["type"] != plex_type:
+                continue
             page = 0
             while True:
                 data = await _request(url, token, f"/library/sections/{lib['id']}/all", params={
@@ -227,11 +225,43 @@ async def find_by_guid(url: str, token: str, tmdb_id: int, media_type: str) -> d
                     break
                 for item in items:
                     for g in item.get("Guid", []):
-                        if g.get("id") == target_guid:
-                            return _format_item_detailed(item)
+                        gid = g.get("id", "")
+                        if gid.startswith("tmdb://"):
+                            mapping[gid.replace("tmdb://", "")] = item.get("ratingKey")
                 page += 200
                 if len(items) < 200:
                     break
+    except Exception:
+        pass
+
+    _guid_cache[cache_key] = mapping
+    return mapping
+
+
+async def find_by_guid(url: str, token: str, tmdb_id: int, media_type: str) -> dict | None:
+    """Find an item on Plex by TMDB ID. Uses cache for speed."""
+    plex_type = "movie" if media_type == "movie" else "show"
+    target_guid = f"tmdb://{tmdb_id}"
+
+    # Method 1: Direct GUID filter (fast, works on some servers)
+    try:
+        libraries = await get_libraries(url, token)
+        for lib in libraries:
+            if lib["type"] != plex_type:
+                continue
+            data = await _request(url, token, f"/library/sections/{lib['id']}/all", params={"guid": target_guid})
+            items = data.get("MediaContainer", {}).get("Metadata", [])
+            if items:
+                return _format_item_detailed(items[0])
+    except Exception:
+        pass
+
+    # Method 2: Cached full scan (built once, reused for 10 min)
+    cache = await _build_guid_cache(url, token, plex_type)
+    rating_key = cache.get(str(tmdb_id))
+    if rating_key:
+        try:
+            return await get_metadata(url, token, rating_key)
         except Exception:
             pass
 
