@@ -254,7 +254,7 @@ async def plex_status(tmdb_id: int, media_type: str = Query("movie"), user: User
             )
             if not item:
                 return None
-            return {
+            result = {
                 "server_name": srv["name"],
                 "ratingKey": item.get("ratingKey"),
                 "title": item.get("title"),
@@ -267,6 +267,28 @@ async def plex_status(tmdb_id: int, media_type: str = Query("movie"), user: User
                 "viewCount": item.get("viewCount", 0),
                 "lastViewedAt": item.get("lastViewedAt"),
             }
+            # For TV: get season info
+            if media_type == "tv" and item.get("ratingKey"):
+                try:
+                    from ..services.plex import _request
+                    seasons_data = await asyncio.wait_for(
+                        _request(srv["url"], token, f"/library/metadata/{item['ratingKey']}/children"),
+                        timeout=5,
+                    )
+                    seasons = []
+                    for s in seasons_data.get("MediaContainer", {}).get("Metadata", []):
+                        snum = s.get("index", 0)
+                        if snum == 0:
+                            continue
+                        seasons.append({
+                            "number": snum,
+                            "episodes": s.get("leafCount", 0),
+                            "viewedEpisodes": s.get("viewedLeafCount", 0),
+                        })
+                    result["seasons"] = seasons
+                except Exception:
+                    pass
+            return result
         except Exception:
             return None
 

@@ -101,7 +101,28 @@ export default function WatchProviders({ mediaType, tmdbId }) {
                     </div>
                   </div>
                   {isExpanded && (
-                    <div className="px-2.5 pb-2 grid grid-cols-2 gap-1.5">
+                    <div className="px-2.5 pb-2 space-y-1.5">
+                      {/* Season overview (TV only) */}
+                      {srv.seasons?.length > 0 && (
+                        <div className="space-y-1">
+                          {srv.seasons.map(s => {
+                            const pct = s.episodes > 0 ? Math.round(s.viewedEpisodes / s.episodes * 100) : 0
+                            return (
+                              <div key={s.number} className="flex items-center gap-2">
+                                <span className="text-[10px] text-white/35 w-7 shrink-0">S{String(s.number).padStart(2,'0')}</span>
+                                <div className="flex-1 h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+                                  <div className={`h-full rounded-full ${pct >= 100 ? 'bg-green-400' : pct > 0 ? 'bg-blue-400' : 'bg-white/[0.08]'}`} style={{ width: `${Math.max(pct, 3)}%` }} />
+                                </div>
+                                <span className={`text-[9px] w-12 text-right shrink-0 ${pct >= 100 ? 'text-green-400' : pct > 0 ? 'text-blue-400/70' : 'text-white/20'}`}>
+                                  {s.viewedEpisodes}/{s.episodes}
+                                </span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                      {/* File info grid */}
+                      <div className="grid grid-cols-2 gap-1.5">
                       {srv.videoCodec && (
                         <div className="bg-white/[0.04] rounded-lg p-1.5">
                           <p className="text-[9px] text-white/25">Video</p>
@@ -126,6 +147,7 @@ export default function WatchProviders({ mediaType, tmdbId }) {
                           <p className="text-[11px] text-white/60">{new Date(srv.lastViewedAt * 1000).toLocaleDateString('de-DE')}</p>
                         </div>
                       )}
+                      </div>
                     </div>
                   )}
                 </div>
