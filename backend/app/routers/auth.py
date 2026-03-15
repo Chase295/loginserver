@@ -52,6 +52,19 @@ async def _auto_setup_plex_user(user_id: int, plex_token: str):
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
+
+@router.get("/login-options")
+async def login_options(db: AsyncSession = Depends(get_db)):
+    """Public endpoint: which login methods are available?"""
+    from ..models import SystemSetting
+    jf_url_setting = (await db.execute(select(SystemSetting).where(SystemSetting.key == "jellyfin_login_url"))).scalar_one_or_none()
+    return {
+        "plex": True,
+        "jellyfin": bool(jf_url_setting),
+        "jellyfin_url": jf_url_setting.value if jf_url_setting else None,
+        "local": True,
+    }
+
 PLEX_HEADERS = {
     "X-Plex-Product": "Watchlist App",
     "X-Plex-Version": "2.0",
@@ -220,6 +233,16 @@ async def plex_callback(data: dict, background_tasks: BackgroundTasks, db: Async
         if is_first_user:
             logger.warning(f"First user '{username}' registered via Plex — granted admin + installer")
 
+    # Auto-create Tautulli connection if server exists
+    if user.plex_username:
+        from ..models import TautulliServer, UserPlexConnection
+        tautulli_servers = (await db.execute(select(TautulliServer).where(TautulliServer.enabled == True))).scalars().all()
+        for ts in tautulli_servers:
+            existing_conn = (await db.execute(select(UserPlexConnection).where(UserPlexConnection.user_id == user.id, UserPlexConnection.server_id == ts.id))).scalar_one_or_none()
+            if not existing_conn:
+                db.add(UserPlexConnection(user_id=user.id, server_id=ts.id, plex_username=user.plex_username))
+        await db.flush()
+
     # Trigger auto-setup for new users in background
     if is_new:
         import asyncio
@@ -278,3 +301,103 @@ async def plex_link(data: dict, user: User = Depends(get_current_user), db: Asyn
     await db.flush()
 
     return {"status": "linked", "plex_username": plex_username}
+
+
+# --- Jellyfin Login ---
+
+
+@router.post("/jellyfin/login")
+async def jellyfin_login(data: dict, db: AsyncSession = Depends(get_db)):
+    """Login or register via Jellyfin credentials."""
+    from ..models import JellyfinServer
+    from ..services import jellyfin as jf_service
+
+    jf_url = data.get("url", "").rstrip("/")
+    jf_username = data.get("username", "")
+    jf_password = data.get("password", "")
+
+    if not jf_url or not jf_username or not jf_password:
+        raise HTTPException(status_code=400, detail="URL, Username und Passwort erforderlich")
+
+    # Authenticate with Jellyfin
+    try:
+        auth = await jf_service.authenticate(jf_url, jf_username, jf_password)
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Jellyfin Login fehlgeschlagen: {e}")
+
+    jf_user_id = auth["user_id"]
+    jf_token = auth["token"]
+
+    # Find existing user by jellyfin_id
+    result = await db.execute(select(User).where(User.jellyfin_id == jf_user_id))
+    user = result.scalar_one_or_none()
+    is_new = False
+
+    if user:
+        # Update token
+        user.jellyfin_username = jf_username
+        await db.flush()
+    else:
+        is_new = True
+        user_count = (await db.execute(select(func.count()).select_from(User))).scalar()
+        is_first = user_count == 0
+
+        # Check username conflict
+        username = jf_username
+        if (await db.execute(select(User).where(User.username == username))).scalar_one_or_none():
+            username = f"{jf_username}_jf"
+
+        email = f"{jf_user_id}@jellyfin.local"
+        if (await db.execute(select(User).where(User.email == email))).scalar_one_or_none():
+            email = f"jf_{jf_user_id}@jellyfin.local"
+
+        user = User(
+            username=username, email=email, hashed_password=None,
+            auth_provider="jellyfin",
+            is_admin=is_first, is_installer=is_first,
+            jellyfin_id=jf_user_id, jellyfin_username=jf_username,
+        )
+        db.add(user)
+        await db.flush()
+
+        # Create default watchlist
+        db.add(Watchlist(owner_id=user.id, name="Meine Watchlist", icon="🎬", is_default=True))
+        await db.flush()
+
+        if is_first:
+            logger.warning(f"First user '{username}' registered via Jellyfin — granted admin + installer")
+
+    # Auto-add Jellyfin server for this user
+    existing_jf = (await db.execute(select(JellyfinServer).where(JellyfinServer.user_id == user.id, JellyfinServer.url == jf_url))).scalar_one_or_none()
+    if not existing_jf:
+        try:
+            info = await jf_service.test_connection(jf_url, jf_token, jf_user_id)
+            server_name = info.get("name", "Jellyfin")
+        except Exception:
+            server_name = "Jellyfin"
+        db.add(JellyfinServer(user_id=user.id, name=server_name, url=jf_url, token=jf_token, jellyfin_user_id=jf_user_id))
+    else:
+        existing_jf.token = jf_token
+        existing_jf.jellyfin_user_id = jf_user_id
+    await db.flush()
+
+    # Commit before triggering sync (so sync can find the server)
+    await db.commit()
+
+    # Trigger full sync for new users or users with no movies
+    should_sync = is_new
+    if not should_sync:
+        movie_count = (await db.execute(select(func.count()).select_from(Movie).join(Watchlist).where(Watchlist.owner_id == user.id))).scalar()
+        should_sync = movie_count == 0
+
+    if should_sync:
+        import asyncio
+        from ..routers.jellyfin import _run_jellyfin_sync
+        asyncio.ensure_future(_run_jellyfin_sync(user.id))
+        logger.warning(f"Jellyfin auto-sync started for user {user.username}")
+
+    return {
+        "access_token": create_token(user.id, user.username),
+        "token_type": "bearer",
+        "user": {"id": user.id, "username": user.username, "is_admin": user.is_admin},
+    }

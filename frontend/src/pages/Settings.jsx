@@ -7,6 +7,8 @@ function SyncOverview() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [fullSyncing, setFullSyncing] = useState(false)
+  const [fullSyncResult, setFullSyncResult] = useState(null)
 
   useEffect(() => {
     api.get('/sync/overview')
@@ -34,11 +36,70 @@ function SyncOverview() {
 
   const { watchlist: wl, plex, jellyfin: jf, sonarr, radarr, tautulli, schedule } = data
 
+  const runFullSync = async () => {
+    setFullSyncing(true)
+    setFullSyncResult(null)
+    try {
+      await api.post('/sync/full')
+      // Poll status
+      const poll = setInterval(async () => {
+        try {
+          const s = await api.get('/sync/full/status')
+          setFullSyncResult([`Schritt: ${s.data.step}`, ...(s.data.results || [])])
+          if (!s.data.running) {
+            clearInterval(poll)
+            setFullSyncing(false)
+            api.get('/sync/overview').then(r => setData(r.data)).catch(() => {})
+          }
+        } catch { clearInterval(poll); setFullSyncing(false) }
+      }, 3000)
+    } catch {
+      setFullSyncing(false)
+      setFullSyncResult(['Fehler beim Starten'])
+    }
+  }
+
   return (
     <section className="glass p-6">
-      <h2 className="text-sm font-medium text-white/50 uppercase tracking-wider mb-4 flex items-center gap-2">
-        <HiArrowPath className="w-4 h-4" /> Sync-Übersicht
-      </h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-sm font-medium text-white/50 uppercase tracking-wider flex items-center gap-2">
+          <HiArrowPath className="w-4 h-4" /> Sync-Übersicht
+        </h2>
+        <button
+          onClick={runFullSync}
+          disabled={fullSyncing}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-gradient-to-r from-blue-500/20 to-purple-500/20 text-blue-400 active:from-blue-500/30 active:to-purple-500/30 disabled:opacity-50"
+        >
+          <HiArrowPath className={`w-3.5 h-3.5 ${fullSyncing ? 'animate-spin' : ''}`} />
+          {fullSyncing ? 'Voller Sync läuft...' : 'Voller Sync'}
+        </button>
+      </div>
+
+      {/* Sync Progress */}
+      {(fullSyncing || fullSyncResult) && (
+        <div className={`rounded-xl p-3 mb-4 ${fullSyncing ? 'bg-blue-500/5 border border-blue-500/15' : 'bg-green-500/5 border border-green-500/15'}`}>
+          {fullSyncing && (
+            <div className="flex items-center gap-3 mb-2">
+              {['plex', 'jellyfin', 'tautulli'].map(step => {
+                const currentStep = fullSyncResult?.find(r => r.startsWith('Schritt:'))?.replace('Schritt: ', '') || ''
+                const isDone = fullSyncResult?.some(r => r.toLowerCase().startsWith(step + ':'))
+                const isActive = currentStep === step
+                return (
+                  <div key={step} className="flex items-center gap-1.5">
+                    <div className={`w-2 h-2 rounded-full ${isDone ? 'bg-green-400' : isActive ? 'bg-blue-400 animate-pulse' : 'bg-white/15'}`} />
+                    <span className={`text-[11px] capitalize ${isDone ? 'text-green-400' : isActive ? 'text-blue-400' : 'text-white/25'}`}>{step}</span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          <div className="space-y-0.5">
+            {(fullSyncResult || []).filter(r => !r.startsWith('Schritt:')).map((r, i) => (
+              <p key={i} className={`text-xs ${r.includes('OK') || r.includes('+') || r.includes('~') ? 'text-green-400' : r.includes('Fehler') || r.includes('error') ? 'text-red-400/70' : 'text-white/40'}`}>{r}</p>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-4">
@@ -714,6 +775,35 @@ export default function Settings() {
           <h2 className="text-sm font-medium text-amber-400/70 uppercase tracking-wider mb-4 flex items-center gap-2">
             <HiShieldCheck className="w-4 h-4" /> Admin-Bereich
           </h2>
+
+          {/* Jellyfin Login URL */}
+          <div className="mb-4 pb-4 border-b border-white/[0.06]">
+            <p className="text-xs text-white/40 mb-1.5">Jellyfin Login Server (für alle User)</p>
+            <div className="flex gap-2">
+              <input
+                id="jf-login-url"
+                defaultValue=""
+                placeholder="https://jellyfin.example.com"
+                className="glass-input py-2 text-sm flex-1"
+                ref={el => {
+                  if (el && !el.dataset.loaded) {
+                    el.dataset.loaded = 'true'
+                    api.get('/admin/settings/jellyfin-login-url').then(r => { if (r.data.url) el.value = r.data.url }).catch(() => {})
+                  }
+                }}
+              />
+              <button
+                onClick={() => {
+                  const url = document.getElementById('jf-login-url')?.value || ''
+                  api.put('/admin/settings/jellyfin-login-url', { url }).then(() => alert(url ? 'Gespeichert — Jellyfin Login ist jetzt aktiv' : 'Jellyfin Login deaktiviert')).catch(() => {})
+                }}
+                className="px-3 py-2 rounded-xl text-xs font-medium bg-purple-500/20 text-purple-400"
+              >
+                Speichern
+              </button>
+            </div>
+            <p className="text-[10px] text-white/20 mt-1">Wenn gesetzt, können sich User mit Jellyfin-Credentials anmelden</p>
+          </div>
 
           {/* Stats */}
           {adminStats && (

@@ -258,6 +258,8 @@ async def _run_migrations():
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_provider VARCHAR(20) DEFAULT 'local'",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS plex_avatar VARCHAR(500)",
         "ALTER TABLE users ALTER COLUMN hashed_password DROP NOT NULL",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS jellyfin_id VARCHAR(100)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS jellyfin_username VARCHAR(100)",
         "ALTER TABLE tautulli_servers ADD COLUMN IF NOT EXISTS enabled BOOLEAN DEFAULT TRUE",
         "ALTER TABLE sonarr_servers ADD COLUMN IF NOT EXISTS enabled BOOLEAN DEFAULT TRUE",
         "ALTER TABLE radarr_servers ADD COLUMN IF NOT EXISTS enabled BOOLEAN DEFAULT TRUE",

@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://postgres:postgres@db:5432/watchlist"
     jwt_secret: str = "change-me-in-production"
     jwt_algorithm: str = "HS256"
-    jwt_expire_minutes: int = 1440  # 24 hours
+    jwt_expire_minutes: int = 43200  # 30 days
     tmdb_api_key: str = ""
     tmdb_access_token: str = ""
     cors_allowed_origins: str = "http://localhost:5173,http://localhost:3000"

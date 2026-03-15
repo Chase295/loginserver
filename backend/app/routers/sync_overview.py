@@ -1,16 +1,93 @@
 """Sync Overview — shows status of all integrations for the current user."""
-from fastapi import APIRouter, Depends
+import logging
+
+from fastapi import APIRouter, BackgroundTasks, Depends
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth import get_current_user
-from ..database import get_db
+from ..database import async_session, get_db
 from ..models import (
     JellyfinServer, Movie, PlexServer, RadarrServer,
     SonarrServer, SyncLog, TautulliServer, User, Watchlist,
 )
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/sync", tags=["sync"])
+
+_full_sync_status: dict[int, dict] = {}
+
+
+async def _run_full_sync(user_id: int):
+    """Background: run Plex + Jellyfin + Tautulli sync sequentially."""
+    from ..services.sync_log import log_sync
+
+    _full_sync_status[user_id] = {"running": True, "step": "plex", "results": []}
+    try:
+        # 1. Plex (has its own logging)
+        _full_sync_status[user_id]["step"] = "plex"
+        try:
+            from ..routers.plex import _run_full_plex_sync
+            await _run_full_plex_sync(user_id)
+            _full_sync_status[user_id]["results"].append("Plex: OK")
+        except Exception as e:
+            _full_sync_status[user_id]["results"].append(f"Plex: Fehler — {e}")
+            await log_sync(user_id, "plex", "import", errors=1, details=f"Voller Sync fehlgeschlagen: {e}")
+
+        # 2. Jellyfin (has its own logging)
+        _full_sync_status[user_id]["step"] = "jellyfin"
+        try:
+            from ..routers.jellyfin import _run_jellyfin_sync
+            await _run_jellyfin_sync(user_id)
+            _full_sync_status[user_id]["results"].append("Jellyfin: OK")
+        except Exception as e:
+            _full_sync_status[user_id]["results"].append(f"Jellyfin: Fehler — {e}")
+            await log_sync(user_id, "jellyfin", "import", errors=1, details=f"Voller Sync fehlgeschlagen: {e}")
+
+        # 3. Tautulli
+        _full_sync_status[user_id]["step"] = "tautulli"
+        try:
+            async with async_session() as db:
+                from ..models import UserPlexConnection
+                conn = (await db.execute(select(UserPlexConnection).where(UserPlexConnection.user_id == user_id))).scalar_one_or_none()
+                if conn:
+                    srv = (await db.execute(select(TautulliServer).where(TautulliServer.id == conn.server_id, TautulliServer.enabled == True))).scalar_one_or_none()
+                    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one()
+                    if srv:
+                        from ..services.tautulli import sync_user_history
+                        result = await sync_user_history(user, conn, srv, db)
+                        await db.commit()
+                        a, u = result.get('added', 0), result.get('updated', 0)
+                        _full_sync_status[user_id]["results"].append(f"Tautulli: +{a} ~{u}")
+                        await log_sync(user_id, "tautulli", "import", a, u, details=f"Voller Sync")
+                    else:
+                        _full_sync_status[user_id]["results"].append("Tautulli: übersprungen (kein aktiver Server)")
+                else:
+                    _full_sync_status[user_id]["results"].append("Tautulli: übersprungen (keine Verbindung)")
+        except Exception as e:
+            _full_sync_status[user_id]["results"].append(f"Tautulli: Fehler — {e}")
+            await log_sync(user_id, "tautulli", "import", errors=1, details=str(e))
+
+        _full_sync_status[user_id] = {"running": False, "step": "done", "results": _full_sync_status[user_id]["results"]}
+        logger.info(f"Full sync done for user {user_id}: {_full_sync_status[user_id]['results']}")
+    except Exception as e:
+        _full_sync_status[user_id] = {"running": False, "step": "error", "results": [str(e)]}
+        await log_sync(user_id, "full-sync", "import", errors=1, details=str(e))
+
+
+@router.post("/full")
+async def start_full_sync(user: User = Depends(get_current_user)):
+    """Start full Plex + Jellyfin + Tautulli sync in background."""
+    if _full_sync_status.get(user.id, {}).get("running"):
+        return {"status": "already_running", **_full_sync_status[user.id]}
+    import asyncio
+    asyncio.ensure_future(_run_full_sync(user.id))
+    return {"status": "started"}
+
+
+@router.get("/full/status")
+async def full_sync_status(user: User = Depends(get_current_user)):
+    return _full_sync_status.get(user.id, {"running": False, "step": "idle", "results": []})
 
 
 @router.get("/overview")

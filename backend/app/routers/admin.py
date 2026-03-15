@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth import get_current_user, require_admin
 from ..database import get_db
-from ..models import ApiKey, DownloadProfile, JellyfinServer, Movie, PlexServer, RadarrServer, SonarrServer, TautulliServer, User, Watchlist
+from ..models import ApiKey, DownloadProfile, JellyfinServer, Movie, PlexServer, RadarrServer, SonarrServer, SystemSetting, TautulliServer, User, Watchlist
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -61,6 +61,30 @@ async def toggle_installer(user_id: int, user: User = Depends(require_admin), db
     target.is_installer = not target.is_installer
     await db.flush()
     return {"user_id": target.id, "is_installer": target.is_installer}
+
+
+# --- Settings ---
+
+
+@router.get("/settings/jellyfin-login-url")
+async def get_jellyfin_login_url(user: User = Depends(require_admin), db: AsyncSession = Depends(get_db)):
+    s = (await db.execute(select(SystemSetting).where(SystemSetting.key == "jellyfin_login_url"))).scalar_one_or_none()
+    return {"url": s.value if s else None}
+
+
+@router.put("/settings/jellyfin-login-url")
+async def set_jellyfin_login_url(data: dict, user: User = Depends(require_admin), db: AsyncSession = Depends(get_db)):
+    url = data.get("url", "").rstrip("/")
+    s = (await db.execute(select(SystemSetting).where(SystemSetting.key == "jellyfin_login_url"))).scalar_one_or_none()
+    if s:
+        if url:
+            s.value = url
+        else:
+            await db.delete(s)
+    elif url:
+        db.add(SystemSetting(key="jellyfin_login_url", value=url))
+    await db.flush()
+    return {"url": url or None}
 
 
 # --- Download Profiles ---

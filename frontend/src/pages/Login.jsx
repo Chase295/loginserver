@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useAuth } from '../context/AuthContext'
@@ -11,8 +11,35 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const [plexLoading, setPlexLoading] = useState(false)
   const [showLocal, setShowLocal] = useState(false)
+  const [showJellyfin, setShowJellyfin] = useState(false)
+  const [jfLoading, setJfLoading] = useState(false)
+  const [jfUsername, setJfUsername] = useState('')
+  const [jfPassword, setJfPassword] = useState('')
+  const [loginOptions, setLoginOptions] = useState({ plex: true, jellyfin: false, jellyfin_url: null })
   const { login } = useAuth()
   const navigate = useNavigate()
+
+  useEffect(() => {
+    api.get('/auth/login-options').then(r => setLoginOptions(r.data)).catch(() => {})
+  }, [])
+
+  const loginWithJellyfin = async () => {
+    if (!jfUsername || !jfPassword) return
+    setJfLoading(true)
+    setError('')
+    try {
+      const res = await api.post('/auth/jellyfin/login', {
+        url: loginOptions.jellyfin_url,
+        username: jfUsername,
+        password: jfPassword,
+      })
+      localStorage.setItem('token', res.data.access_token)
+      window.location.href = '/'
+    } catch (e) {
+      setError(e.response?.data?.detail || 'Jellyfin Login fehlgeschlagen')
+    }
+    setJfLoading(false)
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -142,6 +169,32 @@ export default function Login() {
             </>
           )}
         </button>
+
+        {/* Jellyfin Login */}
+        {loginOptions.jellyfin && !showJellyfin && (
+          <button
+            onClick={() => setShowJellyfin(true)}
+            className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl text-sm font-semibold bg-[#6B4FA0] text-white active:bg-[#5A3F8A] transition-all mb-2"
+          >
+            <span className="text-lg">🟣</span>
+            Mit Jellyfin anmelden
+          </button>
+        )}
+
+        {showJellyfin && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-2 mb-4">
+            <input value={jfUsername} onChange={e => setJfUsername(e.target.value)} placeholder="Jellyfin Benutzername" className="glass-input" autoComplete="username" />
+            <input type="password" value={jfPassword} onChange={e => setJfPassword(e.target.value)} placeholder="Jellyfin Passwort" className="glass-input" autoComplete="current-password"
+              onKeyDown={e => e.key === 'Enter' && loginWithJellyfin()} />
+            <div className="flex gap-2">
+              <button onClick={() => setShowJellyfin(false)} className="flex-1 py-2.5 rounded-xl text-xs bg-white/[0.06] text-white/50">Abbrechen</button>
+              <button onClick={loginWithJellyfin} disabled={jfLoading || !jfUsername || !jfPassword}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-[#6B4FA0] text-white disabled:opacity-50">
+                {jfLoading ? 'Anmelden...' : 'Anmelden'}
+              </button>
+            </div>
+          </motion.div>
+        )}
 
         {/* Divider */}
         <div className="flex items-center gap-3 mb-4">

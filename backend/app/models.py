@@ -30,6 +30,8 @@ class User(Base):
     plex_token: Mapped[str | None] = mapped_column(String(255), nullable=True)
     plex_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     plex_avatar: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    jellyfin_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    jellyfin_username: Mapped[str | None] = mapped_column(String(100), nullable=True)
     last_tautulli_sync: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
