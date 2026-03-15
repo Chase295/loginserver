@@ -176,6 +176,57 @@ TOOLS = [
         "description": "Get currently trending movies and TV series.",
         "inputSchema": {"type": "object", "properties": {}},
     },
+    {
+        "name": "grab_release",
+        "description": "Download a specific release found via search_releases. Needs the guid and indexerId from search results.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"tmdb_id": {"type": "integer"}, "media_type": {"type": "string", "enum": ["movie", "tv"]}, "guid": {"type": "string"}, "indexer_id": {"type": "integer"}},
+            "required": ["tmdb_id", "media_type", "guid", "indexer_id"],
+        },
+    },
+    {
+        "name": "get_stats",
+        "description": "Get watchlist statistics: total movies, series, episodes watched, status breakdown.",
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "check_jellyfin",
+        "description": "Check if a movie/series is available on Jellyfin. Shows played status.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"tmdb_id": {"type": "integer"}, "media_type": {"type": "string", "enum": ["movie", "tv"]}},
+            "required": ["tmdb_id", "media_type"],
+        },
+    },
+    {
+        "name": "get_episode_progress",
+        "description": "Get which episodes of a TV series have been watched. Returns per-season episode lists.",
+        "inputSchema": {"type": "object", "properties": {"tmdb_id": {"type": "integer"}}, "required": ["tmdb_id"]},
+    },
+    {
+        "name": "set_rating",
+        "description": "Set a 1-5 star rating for a movie/series in the watchlist.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"tmdb_id": {"type": "integer"}, "rating": {"type": "integer", "minimum": 1, "maximum": 5}},
+            "required": ["tmdb_id", "rating"],
+        },
+    },
+    {
+        "name": "add_tags",
+        "description": "Add tags to a movie/series (e.g. 'Anime', 'Must Watch'). Each tag has a label and optional color.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"tmdb_id": {"type": "integer"}, "tags": {"type": "array", "items": {"type": "string"}}},
+            "required": ["tmdb_id", "tags"],
+        },
+    },
+    {
+        "name": "get_recommendations",
+        "description": "Get personalized recommendations based on your watchlist — shows unwatched items similar to what you liked.",
+        "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer", "default": 10}}},
+    },
 ]
 
 # ─── Tool Handlers ─────────────────────────────────────────────────
@@ -190,6 +241,9 @@ async def _handle_tool(name: str, args: dict, user: User) -> Any:
         "add_to_sonarr": _add_to_sonarr, "add_to_radarr": _add_to_radarr,
         "delete_from_sonarr": _delete_from_sonarr, "delete_from_radarr": _delete_from_radarr,
         "search_releases": _search_releases, "get_trending": _get_trending,
+        "grab_release": _grab_release, "get_stats": _get_stats,
+        "check_jellyfin": _check_jellyfin, "get_episode_progress": _get_episode_progress,
+        "set_rating": _set_rating, "add_tags": _add_tags, "get_recommendations": _get_recommendations,
     }
     handler = handlers.get(name)
     if not handler:
@@ -355,6 +409,118 @@ async def _search_releases(args, user):
 async def _get_trending(args, user):
     results = await TMDBService().trending()
     return [{"tmdb_id": r.get("id"), "title": r.get("title") or r.get("name"), "media_type": r.get("media_type"), "year": (r.get("release_date") or r.get("first_air_date") or "")[:4]} for r in (results.get("results") or [])[:15]]
+
+
+async def _grab_release(args, user):
+    async with async_session() as db:
+        if args["media_type"] == "movie":
+            srv = (await db.execute(select(RadarrServer).limit(1))).scalar_one_or_none()
+            if not srv: return {"error": "No Radarr server"}
+            await radarr_service.grab_release(srv.url, srv.api_key, args["guid"], args["indexer_id"])
+        else:
+            srv = (await db.execute(select(SonarrServer).limit(1))).scalar_one_or_none()
+            if not srv: return {"error": "No Sonarr server"}
+            await sonarr_service.grab_release(srv.url, srv.api_key, args["guid"], args["indexer_id"])
+    return {"success": True, "message": "Release wird heruntergeladen"}
+
+
+async def _get_stats(args, user):
+    async with async_session() as db:
+        from sqlalchemy import func
+        all_wls = (await db.execute(select(Watchlist).where(Watchlist.owner_id == user.id))).scalars().all()
+        wl_ids = [w.id for w in all_wls]
+        if not wl_ids: return {"total": 0}
+        movies = (await db.execute(select(Movie).where(Movie.watchlist_id.in_(wl_ids)))).scalars().all()
+        stats = {"total": len(movies), "movies": 0, "movies_watched": 0, "series": 0, "series_watched": 0, "episodes_watched": 0, "by_status": {}}
+        for m in movies:
+            if m.media_type == "movie":
+                stats["movies"] += 1
+                if m.status == "watched": stats["movies_watched"] += 1
+            else:
+                stats["series"] += 1
+                if m.status == "watched": stats["series_watched"] += 1
+            stats["by_status"][m.status] = stats["by_status"].get(m.status, 0) + 1
+            if m.watch_progress:
+                for eps in m.watch_progress.values():
+                    if isinstance(eps, list): stats["episodes_watched"] += len(eps)
+        return stats
+
+
+async def _check_jellyfin(args, user):
+    from ..services import jellyfin as jf_svc
+    from ..models import JellyfinServer
+    async with async_session() as db:
+        servers = (await db.execute(select(JellyfinServer).where(JellyfinServer.user_id == user.id, JellyfinServer.enabled == True))).scalars().all()
+        found = []
+        for srv in servers:
+            try:
+                item = await jf_svc.find_by_tmdb(srv.url, srv.token, srv.jellyfin_user_id, args["tmdb_id"], args["media_type"])
+                if item: found.append({"server": srv.name, "title": item.get("name"), "played": item.get("played"), "play_count": item.get("playCount", 0)})
+            except Exception: continue
+        return {"found": len(found) > 0, "servers": found}
+
+
+async def _get_episode_progress(args, user):
+    async with async_session() as db:
+        all_wls = (await db.execute(select(Watchlist).where(Watchlist.owner_id == user.id))).scalars().all()
+        wl_ids = [w.id for w in all_wls]
+        movie = (await db.execute(select(Movie).where(Movie.watchlist_id.in_(wl_ids), Movie.tmdb_id == args["tmdb_id"]))).scalars().first()
+        if not movie: return {"error": "Not in watchlist"}
+        progress = movie.watch_progress or {}
+        total_eps = sum(len(eps) for eps in progress.values())
+        return {"title": movie.title, "status": movie.status, "total_episodes_watched": total_eps, "progress": progress}
+
+
+async def _set_rating(args, user):
+    async with async_session() as db:
+        all_wls = (await db.execute(select(Watchlist).where(Watchlist.owner_id == user.id))).scalars().all()
+        wl_ids = [w.id for w in all_wls]
+        movie = (await db.execute(select(Movie).where(Movie.watchlist_id.in_(wl_ids), Movie.tmdb_id == args["tmdb_id"]))).scalars().first()
+        if not movie: return {"error": "Not in watchlist"}
+        movie.rating = args["rating"]
+        await db.commit()
+        return {"success": True, "title": movie.title, "rating": args["rating"]}
+
+
+async def _add_tags(args, user):
+    async with async_session() as db:
+        all_wls = (await db.execute(select(Watchlist).where(Watchlist.owner_id == user.id))).scalars().all()
+        wl_ids = [w.id for w in all_wls]
+        movie = (await db.execute(select(Movie).where(Movie.watchlist_id.in_(wl_ids), Movie.tmdb_id == args["tmdb_id"]))).scalars().first()
+        if not movie: return {"error": "Not in watchlist"}
+        existing = movie.tags or []
+        existing_labels = {t.get("label", "").lower() for t in existing if isinstance(t, dict)}
+        colors = ["#6366f1", "#ec4899", "#f59e0b", "#10b981", "#3b82f6", "#8b5cf6"]
+        for i, tag in enumerate(args["tags"]):
+            if tag.lower() not in existing_labels:
+                existing.append({"label": tag, "color": colors[i % len(colors)], "is_private": False})
+        movie.tags = existing
+        await db.commit()
+        return {"success": True, "title": movie.title, "tags": [t["label"] for t in movie.tags]}
+
+
+async def _get_recommendations(args, user):
+    async with async_session() as db:
+        all_wls = (await db.execute(select(Watchlist).where(Watchlist.owner_id == user.id))).scalars().all()
+        wl_ids = [w.id for w in all_wls]
+        movies = (await db.execute(select(Movie).where(Movie.watchlist_id.in_(wl_ids)))).scalars().all()
+        # Find highly rated or recently watched
+        liked = [m for m in movies if (m.rating and m.rating >= 4) or m.status == "watched"]
+        if not liked: return {"recommendations": [], "message": "Noch nicht genug geschaut für Empfehlungen"}
+        # Pick a random liked item and get TMDB recommendations
+        import random
+        pick = random.choice(liked[:20])
+        if not pick.tmdb_id or not pick.media_type: return {"recommendations": []}
+        try:
+            tmdb = TMDBService()
+            data = await tmdb._get(f"/{pick.media_type}/{pick.tmdb_id}/recommendations", {"language": "de-DE"})
+            watched_ids = {m.tmdb_id for m in movies}
+            recs = [{"tmdb_id": r.get("id"), "title": r.get("title") or r.get("name"), "media_type": r.get("media_type"), "year": (r.get("release_date") or r.get("first_air_date") or "")[:4], "vote_average": r.get("vote_average")}
+                    for r in (data.get("results") or []) if r.get("id") not in watched_ids]
+            limit = args.get("limit", 10)
+            return {"based_on": pick.title, "recommendations": recs[:limit]}
+        except Exception:
+            return {"recommendations": [], "error": "TMDB nicht erreichbar"}
 
 
 # ─── Process JSON-RPC message ─────────────────────────────────────
