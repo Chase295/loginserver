@@ -188,15 +188,15 @@ export default function Watchlist() {
         <div className="flex gap-2 shrink-0">
           {activeWl && activeWatchlist?.owner_username && (
             <>
-              <button onClick={() => setShowShare(activeWl)} className="glass-button p-2 rounded-lg">
+              <button onClick={() => setShowShare(activeWl)} className="glass-button p-2 rounded-xl">
                 <HiShare className="w-4 h-4" />
               </button>
-              <button onClick={() => setShowEdit({...activeWatchlist})} className="glass-button p-2 rounded-lg">
+              <button onClick={() => setShowEdit({...activeWatchlist})} className="glass-button p-2 rounded-xl">
                 <HiPencil className="w-4 h-4" />
               </button>
             </>
           )}
-          <button onClick={() => setShowCreate(true)} className="btn-primary p-2 rounded-lg">
+          <button onClick={() => setShowCreate(true)} className="btn-primary p-2 rounded-xl">
             <HiPlus className="w-5 h-5" />
           </button>
         </div>
@@ -291,7 +291,7 @@ export default function Watchlist() {
                 <button
                   key={v}
                   onClick={() => setSortBy(v)}
-                  className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
                     sortBy === v
                       ? 'bg-primary-500/20 text-primary-400 border border-primary-400/30'
                       : 'bg-white/[0.04] text-white/40'
@@ -311,7 +311,7 @@ export default function Watchlist() {
                 <button
                   key={r}
                   onClick={() => setFilterRating(filterRating === r ? null : r)}
-                  className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all active:scale-90 ${
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all active:scale-90 ${
                     filterRating && filterRating <= r
                       ? 'bg-amber-400/20 text-amber-400 border border-amber-400/30'
                       : filterRating && r < filterRating
@@ -340,7 +340,7 @@ export default function Watchlist() {
                 <button
                   key={String(v)}
                   onClick={() => setFilterType(v)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
                     filterType === v
                       ? 'bg-primary-500/20 text-primary-400 border border-primary-400/30'
                       : 'bg-white/[0.04] text-white/40'
@@ -359,7 +359,7 @@ export default function Watchlist() {
               <div className="flex flex-wrap gap-1.5">
                 <button
                   onClick={() => setFilterTag(null)}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                  className={`px-2.5 py-1 rounded-xl text-xs font-medium transition-all ${
                     !filterTag
                       ? 'bg-primary-500/20 text-primary-400 border border-primary-400/30'
                       : 'bg-white/[0.04] text-white/40'
@@ -371,7 +371,7 @@ export default function Watchlist() {
                   <button
                     key={tag.label}
                     onClick={() => setFilterTag(filterTag === tag.label ? null : tag.label)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                    className={`px-2.5 py-1 rounded-xl text-xs font-medium transition-all ${
                       filterTag === tag.label ? 'ring-1 ring-white/30' : ''
                     }`}
                     style={{
@@ -394,11 +394,12 @@ export default function Watchlist() {
           <button
             key={s}
             onClick={() => setStatus(s)}
-            className={`shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
+            className={`shrink-0 px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-300 ${
               status === s
-                ? 'bg-primary-500/20 text-primary-400 border border-primary-400/30'
-                : 'bg-white/[0.04] border border-white/[0.06] text-white/50 active:bg-white/[0.08]'
+                ? 'bg-white/[0.10] text-white border border-white/[0.15]'
+                : 'bg-white/[0.03] border border-white/[0.06] text-white/40 active:bg-white/[0.06]'
             }`}
+            style={status === s ? { boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08), 0 0 12px rgba(99,102,241,0.08)' } : {}}
           >
             {STATUS_LABELS[s]}
             {s !== 'all' && (

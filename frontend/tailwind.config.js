@@ -17,16 +17,21 @@ export default {
           900: '#312e81',
         },
         surface: {
-          DEFAULT: 'rgba(15, 15, 35, 0.8)',
-          light: 'rgba(30, 30, 60, 0.6)',
-          card: 'rgba(20, 20, 50, 0.7)',
+          DEFAULT: 'rgba(12, 12, 30, 0.75)',
+          light: 'rgba(25, 25, 55, 0.50)',
+          card: 'rgba(18, 18, 45, 0.60)',
         },
       },
+      borderRadius: {
+        '4xl': '2rem',
+        '5xl': '2.5rem',
+      },
       backdropBlur: {
-        glass: '20px',
+        glass: '40px',
+        'glass-light': '24px',
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        sans: ['Inter', 'SF Pro Display', 'system-ui', '-apple-system', 'sans-serif'],
       },
     },
   },

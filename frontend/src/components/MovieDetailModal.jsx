@@ -67,15 +67,15 @@ export default function MovieDetailModal({ movie, open, onClose, onUpdate, onDel
     <Modal open={open} onClose={onClose} title={movie.title} large>
       {/* Backdrop */}
       {backdrop && (
-        <div className="relative -mx-5 -mt-4 mb-4 h-44 md:h-56 overflow-hidden rounded-t-lg">
+        <div className="relative -mx-5 -mt-4 mb-4 h-44 md:h-56 overflow-hidden">
           <img src={backdrop} alt="" className="w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#12122e] via-[#12122e]/60 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0e0e24] via-[#0e0e24]/60 to-transparent" />
         </div>
       )}
 
       <div className="flex gap-4 mb-4">
         {poster && (
-          <div className="shrink-0 w-28 md:w-32 rounded-xl overflow-hidden shadow-xl shadow-black/40 -mt-16 relative z-10 border border-white/10">
+          <div className="shrink-0 w-28 md:w-32 rounded-2xl overflow-hidden shadow-xl shadow-black/40 -mt-16 relative z-10 border border-white/[0.10]">
             <img src={poster} alt={movie.title} className="w-full aspect-[2/3] object-cover" />
           </div>
         )}
@@ -84,7 +84,7 @@ export default function MovieDetailModal({ movie, open, onClose, onUpdate, onDel
           <div className="flex flex-wrap items-center gap-2 mt-1.5 text-sm text-white/50">
             {movie.year && <span>{movie.year}</span>}
             {movie.media_type && (
-              <span className="px-2 py-0.5 rounded-md bg-white/10 text-[11px] uppercase">
+              <span className="px-2 py-0.5 rounded-lg bg-white/[0.06] text-[11px] uppercase">
                 {movie.media_type === 'tv' ? 'Serie' : 'Film'}
               </span>
             )}
@@ -215,7 +215,7 @@ export default function MovieDetailModal({ movie, open, onClose, onUpdate, onDel
           {(movie.tags || []).map((tag, i) => (
             <span
               key={i}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-medium"
               style={{ backgroundColor: `${tag.color}20`, color: tag.color, border: `1px solid ${tag.color}30` }}
             >
               {tag.is_private && <HiLockClosed className="w-3 h-3 opacity-60" />}
@@ -257,7 +257,7 @@ export default function MovieDetailModal({ movie, open, onClose, onUpdate, onDel
                 />
               ))}
             </div>
-            <button onClick={addTag} className="w-8 h-8 rounded-lg bg-primary-500/20 text-primary-400 flex items-center justify-center shrink-0 active:scale-90">
+            <button onClick={addTag} className="w-8 h-8 rounded-xl bg-primary-500/20 text-primary-400 flex items-center justify-center shrink-0 active:scale-90 transition-all">
               <HiPlus className="w-4 h-4" />
             </button>
           </div>

@@ -18,14 +18,14 @@ export default function Layout() {
       {/* Mobile: flex column fills viewport, content scrolls inside */}
       <div className="md:hidden flex flex-col h-[100dvh] overflow-hidden">
         {/* Header */}
-        <header className="shrink-0 glass-nav border-b border-white/[0.06] px-4 py-3">
+        <header className="shrink-0 glass-nav border-b border-white/[0.04] px-4 py-3">
           <div className="flex items-center justify-between">
             <h1 className="text-lg font-bold gradient-text">Watchlist</h1>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
               {user?.plex_avatar ? (
-                <img src={user.plex_avatar} alt="" className="w-6 h-6 rounded-full" />
+                <img src={user.plex_avatar} alt="" className="w-7 h-7 rounded-full ring-1 ring-white/10" />
               ) : null}
-              <span className="text-sm text-white/50">{user?.username}</span>
+              <span className="text-sm text-white/40 font-medium">{user?.username}</span>
             </div>
           </div>
         </header>
@@ -38,9 +38,9 @@ export default function Layout() {
         </main>
 
         {/* Bottom nav - always at bottom, never moves */}
-        <nav className="shrink-0 glass-nav border-t border-white/[0.06]"
+        <nav className="shrink-0 glass-nav border-t border-white/[0.04]"
              style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
-          <div className="flex justify-around px-1 py-2">
+          <div className="flex justify-around px-2 py-2.5">
             {navItems.map(({ to, icon: Icon, label, end }) => (
               <NavLink
                 key={to}
@@ -58,8 +58,9 @@ export default function Layout() {
 
       {/* Desktop: sidebar layout (unchanged) */}
       <div className="hidden md:block min-h-screen pl-20">
-        <nav className="fixed left-0 top-0 h-full w-20 flex flex-col items-center py-6 gap-6 glass-nav border-r border-white/[0.06] z-50">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-purple-600 flex items-center justify-center font-bold text-sm mb-4">
+        <nav className="fixed left-0 top-0 h-full w-20 flex flex-col items-center py-6 gap-5 glass-nav border-r border-white/[0.04] z-50">
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary-500 to-purple-600 flex items-center justify-center font-bold text-sm mb-4 shadow-lg shadow-primary-500/20"
+               style={{ boxShadow: '0 4px 20px rgba(99,102,241,0.25), inset 0 1px 0 rgba(255,255,255,0.2)' }}>
             W
           </div>
           {navItems.map(({ to, icon: Icon, label, end }) => (

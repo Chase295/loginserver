@@ -200,8 +200,10 @@ export default function Dashboard() {
             transition={{ delay: i * 0.1 }}
             className="glass p-4 text-center"
           >
-            <div className={`w-10 h-10 mx-auto mb-2 rounded-xl bg-gradient-to-br ${color} flex items-center justify-center shadow-lg`}>
-              <span className="text-sm font-bold text-white">{label[0]}</span>
+            <div className={`w-10 h-10 mx-auto mb-2 rounded-2xl bg-gradient-to-br ${color} flex items-center justify-center relative overflow-hidden`}
+                 style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.2)' }}>
+              <span className="text-sm font-bold text-white relative z-10">{label[0]}</span>
+              <div className="absolute inset-0 bg-gradient-to-b from-white/15 to-transparent" style={{ height: '50%' }} />
             </div>
             <div className="text-2xl font-bold">{value}</div>
             <div className="text-[10px] text-white/40">{sub}</div>
@@ -213,7 +215,8 @@ export default function Dashboard() {
       {(user?.is_admin || user?.is_installer) && queue.length > 0 && (
         <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
           <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-            <span className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+            <span className="w-7 h-7 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center"
+                  style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.2)' }}>
               <HiArrowDown className="w-4 h-4 text-white" />
             </span>
             Downloads
@@ -275,7 +278,8 @@ export default function Dashboard() {
       {(user?.is_admin || user?.is_installer) && calendar.length > 0 && (
         <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
           <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-            <span className="w-7 h-7 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center">
+            <span className="w-7 h-7 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center"
+                  style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.2)' }}>
               <HiCalendar className="w-4 h-4 text-white" />
             </span>
             Diese Woche
@@ -301,7 +305,7 @@ export default function Dashboard() {
                   }}
                   className="text-left group"
                 >
-                  <div className="aspect-[2/3] rounded-xl overflow-hidden relative border border-white/[0.06] group-active:scale-95 transition-transform">
+                  <div className="aspect-[2/3] rounded-2xl overflow-hidden relative border border-white/[0.08] group-active:scale-95 transition-all duration-300">
                     {poster ? (
                       <img src={poster} alt="" className="w-full h-full object-cover" loading="lazy" />
                     ) : (
@@ -409,9 +413,11 @@ export default function Dashboard() {
       )}
 
       {/* Quick Link */}
-      <Link to="/friends" className="glass p-4 flex items-center gap-3 hover:border-primary-400/30 transition-colors">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
-          <HiUserGroup className="w-5 h-5" />
+      <Link to="/friends" className="glass p-4 flex items-center gap-3 hover:border-white/[0.15] transition-all duration-300">
+        <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center relative overflow-hidden"
+             style={{ boxShadow: '0 4px 16px rgba(59,130,246,0.2), inset 0 1px 0 rgba(255,255,255,0.2)' }}>
+          <HiUserGroup className="w-5 h-5 relative z-10" />
+          <div className="absolute inset-0 bg-gradient-to-b from-white/15 to-transparent" style={{ height: '50%' }} />
         </div>
         <div>
           <div className="font-medium text-sm">Freunde</div>
