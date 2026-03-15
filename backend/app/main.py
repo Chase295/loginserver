@@ -42,59 +42,62 @@ async def _tautulli_sync_loop():
             logger.error(f"Tautulli auto-sync failed: {e}")
 
 
-PLEX_SYNC_INTERVAL = 10 * 60  # 10 minutes
+PLEX_SYNC_INTERVAL = 5 * 60  # 5 minutes
 
 
 async def _plex_sync_loop():
-    """Background loop that syncs Plex watch status to watchlist."""
+    """Background loop that syncs Plex watch status to watchlist + forwards to Jellyfin."""
     from sqlalchemy import select
-    from .models import Movie, PlexServer, Watchlist
-    from .services import plex as plex_svc
+    from .models import JellyfinServer, Movie, PlexServer, Watchlist
+    from .services import jellyfin as jf_svc, plex as plex_svc
 
     while True:
         await asyncio.sleep(PLEX_SYNC_INTERVAL)
         try:
             async with async_session() as db:
-                # Get all Plex servers
                 result = await db.execute(select(PlexServer).where(PlexServer.enabled == True))
                 servers = result.scalars().all()
                 if not servers:
                     continue
 
-                synced = 0
+                synced_tmdb_ids = []  # Track what changed for cross-sync
                 for srv in servers:
                     try:
-                        # Get recently watched (last sync interval + buffer)
-                        recent = await plex_svc.get_watch_history_recent(srv.url, srv.token, minutes=15)
+                        recent = await plex_svc.get_watch_history_recent(srv.url, srv.token, minutes=8)
                         for item in recent:
-                            # Extract TMDB ID from guids
                             tmdb_id = None
                             for guid in item.get("guids", []):
                                 if isinstance(guid, str) and guid.startswith("tmdb://"):
                                     tmdb_id = int(guid.replace("tmdb://", ""))
                                     break
-
                             if not tmdb_id:
                                 continue
 
-                            # Find matching movies in any watchlist
-                            result = await db.execute(
-                                select(Movie).where(
-                                    Movie.tmdb_id == tmdb_id,
-                                    Movie.status != "watched",
-                                )
-                            )
+                            result = await db.execute(select(Movie).where(Movie.tmdb_id == tmdb_id, Movie.status != "watched"))
                             movies = result.scalars().all()
                             for movie in movies:
                                 movie.status = "watched"
-                                synced += 1
+                                synced_tmdb_ids.append((tmdb_id, movie.media_type, movie.watchlist_id))
 
                     except Exception as e:
                         logger.error(f"Plex sync failed for server {srv.name}: {e}")
 
-                if synced > 0:
+                if synced_tmdb_ids:
                     await db.commit()
-                    logger.info(f"Plex sync: updated {synced} movies to watched")
+                    logger.info(f"Plex sync: updated {len(synced_tmdb_ids)} to watched")
+
+                    # Cross-sync: forward to Jellyfin
+                    jf_servers = (await db.execute(select(JellyfinServer).where(JellyfinServer.enabled == True))).scalars().all()
+                    for jf_srv in jf_servers:
+                        for tmdb_id, media_type, _ in synced_tmdb_ids:
+                            try:
+                                item = await jf_svc.find_by_tmdb(jf_srv.url, jf_srv.token, jf_srv.jellyfin_user_id, tmdb_id, media_type or "tv")
+                                if item and not item.get("played"):
+                                    await jf_svc.mark_watched(jf_srv.url, jf_srv.token, jf_srv.jellyfin_user_id, item["id"])
+                            except Exception:
+                                pass
+                    if jf_servers:
+                        logger.info(f"Cross-sync: forwarded {len(synced_tmdb_ids)} to Jellyfin")
         except Exception as e:
             logger.error(f"Plex sync loop failed: {e}")
 
@@ -144,13 +147,13 @@ async def _plex_discover_loop():
             logger.error(f"Plex discover loop failed: {e}")
 
 
-JELLYFIN_SYNC_INTERVAL = 10 * 60  # 10 minutes
+JELLYFIN_SYNC_INTERVAL = 5 * 60  # 5 minutes
 
 
 async def _jellyfin_sync_loop():
-    """Background loop that syncs Jellyfin watch history (recent) for all users."""
-    from .models import JellyfinServer, Movie, Watchlist as WL
-    from .services import jellyfin as jf_svc
+    """Background loop that syncs Jellyfin watch history + forwards to Plex."""
+    from .models import JellyfinServer, Movie, User, Watchlist as WL
+    from .services import jellyfin as jf_svc, plex as plex_svc
 
     while True:
         await asyncio.sleep(JELLYFIN_SYNC_INTERVAL)
@@ -162,9 +165,8 @@ async def _jellyfin_sync_loop():
 
                 for srv in servers:
                     try:
-                        # Get watched episodes
                         shows = await jf_svc.get_watched_episodes(srv.url, srv.token, srv.jellyfin_user_id)
-                        movies = await jf_svc.get_watched_movies(srv.url, srv.token, srv.jellyfin_user_id)
+                        movies_watched = await jf_svc.get_watched_movies(srv.url, srv.token, srv.jellyfin_user_id)
 
                         all_wls = (await db.execute(select(WL).where(WL.owner_id == srv.user_id))).scalars().all()
                         all_wl_ids = [w.id for w in all_wls]
@@ -173,15 +175,19 @@ async def _jellyfin_sync_loop():
                             continue
 
                         synced = 0
-                        for m in movies:
+                        synced_tmdb_ids = []
+
+                        for m in movies_watched:
                             existing = (await db.execute(select(Movie).where(Movie.watchlist_id.in_(all_wl_ids), Movie.tmdb_id == m["tmdb_id"]))).scalars().first()
                             if existing:
                                 if existing.status not in ("watched", "dropped"):
                                     existing.status = "watched"
                                     synced += 1
+                                    synced_tmdb_ids.append((m["tmdb_id"], "movie"))
                             else:
                                 db.add(Movie(watchlist_id=default_wl.id, title=m["name"], year=str(m.get("year", "")), tmdb_id=m["tmdb_id"], media_type="movie", status="watched"))
                                 synced += 1
+                                synced_tmdb_ids.append((m["tmdb_id"], "movie"))
 
                         for show in shows:
                             existing = (await db.execute(select(Movie).where(Movie.watchlist_id.in_(all_wl_ids), Movie.tmdb_id == show["tmdb_id"]))).scalars().first()
@@ -211,6 +217,26 @@ async def _jellyfin_sync_loop():
                         if synced > 0:
                             await db.commit()
                             logger.info(f"Jellyfin auto-sync: {synced} changes for user {srv.user_id}")
+
+                            # Cross-sync: forward new watched to Plex
+                            user = (await db.execute(select(User).where(User.id == srv.user_id))).scalar_one_or_none()
+                            if user and user.plex_token and synced_tmdb_ids:
+                                try:
+                                    plex_servers = await plex_svc.discover_servers(user.plex_token)
+                                    for ps in plex_servers:
+                                        for tmdb_id, media_type in synced_tmdb_ids:
+                                            try:
+                                                token = ps.get("token", user.plex_token)
+                                                item = await plex_svc.find_by_guid(ps["url"], token, tmdb_id, media_type)
+                                                if item:
+                                                    plex_type = "show" if media_type == "tv" else "movie"
+                                                    await plex_svc.mark_watched(ps["url"], token, item["ratingKey"], plex_type)
+                                            except Exception:
+                                                pass
+                                    logger.info(f"Cross-sync: forwarded {len(synced_tmdb_ids)} from Jellyfin to Plex")
+                                except Exception:
+                                    pass
+
                     except Exception as e:
                         logger.error(f"Jellyfin auto-sync failed for {srv.name}: {e}")
         except Exception as e:
