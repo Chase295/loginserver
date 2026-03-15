@@ -240,7 +240,8 @@ async def get_movies(
         )
 
     movies = result.scalars().all()
-    to_enrich = [m for m in movies if _needs_enrich(m)]
+    # Only enrich first 5 (background, not blocking)
+    to_enrich = [m for m in movies if _needs_enrich(m)][:5]
     if to_enrich:
         await _auto_enrich(to_enrich, db)
     return movies

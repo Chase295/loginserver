@@ -25,33 +25,19 @@ export default function Dashboard() {
   const [selectedMovie, setSelectedMovie] = useState(null)
 
   const loadMovies = () => {
-    api.get('/watchlist/movies').then(res => {
-      const all = res.data
-      setRecentMovies(all.slice(0, 6))
-
-      const movies = all.filter(m => m.media_type === 'movie')
-      const series = all.filter(m => m.media_type === 'tv')
-
-      // Count episodes from watch_progress
-      let totalEpisodes = 0
-      let watchedEpisodes = 0
-      series.forEach(s => {
-        const progress = s.watch_progress || {}
-        Object.values(progress).forEach(eps => {
-          if (Array.isArray(eps)) watchedEpisodes += eps.length
-        })
-      })
-
+    // Stats from sync overview (fast, no heavy data)
+    api.get('/sync/overview').then(res => {
+      const wl = res.data.watchlist
       setStats({
-        total: all.length,
-        watched: all.filter(m => m.status === 'watched').length,
-        planned: all.filter(m => m.status === 'watchlist' || m.status === 'planned').length,
-        movies: movies.length,
-        moviesWatched: movies.filter(m => m.status === 'watched').length,
-        series: series.length,
-        seriesWatched: series.filter(m => m.status === 'watched').length,
-        episodes: watchedEpisodes,
+        total: wl.total, watched: wl.watched, planned: wl.by_status?.watchlist || 0,
+        movies: wl.movies, moviesWatched: 0, series: wl.series, seriesWatched: 0,
+        episodes: wl.episodes_watched,
       })
+    }).catch(() => {})
+
+    // Only load recent 6 for display (fast)
+    api.get('/watchlist/movies').then(res => {
+      setRecentMovies(res.data.slice(0, 6))
     }).catch(() => {})
   }
 
