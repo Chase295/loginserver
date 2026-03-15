@@ -44,13 +44,15 @@ export default function MovieCard({ movie, onClick }) {
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
 
         {/* Status badge */}
-        <div className={`absolute top-2 left-2 px-2 py-0.5 rounded-lg text-[10px] font-semibold uppercase tracking-wider bg-gradient-to-r ${statusColors[movie.status] || statusColors.watchlist} text-white shadow-lg`}>
+        <div className={`absolute top-2 left-2 px-2 py-0.5 rounded-xl text-[10px] font-semibold uppercase tracking-wider bg-gradient-to-r ${statusColors[movie.status] || statusColors.watchlist} text-white`}
+             style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
           {statusLabels[movie.status] || movie.status}
         </div>
 
         {/* Rating */}
         {movie.rating > 0 && (
-          <div className="absolute top-2 right-2 flex items-center gap-0.5 bg-black/40 px-1.5 py-0.5 rounded-lg">
+          <div className="absolute top-2 right-2 flex items-center gap-0.5 bg-black/30 border border-white/[0.08] px-1.5 py-0.5 rounded-xl"
+               style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
             <HiStar className="w-3 h-3 text-amber-400" />
             <span className="text-xs font-medium">{movie.rating}</span>
           </div>
@@ -58,7 +60,8 @@ export default function MovieCard({ movie, onClick }) {
 
         {/* Private badge */}
         {movie.is_private && (
-          <div className="absolute top-9 right-2 bg-black/40 px-1.5 py-0.5 rounded-lg">
+          <div className="absolute top-9 right-2 bg-black/30 border border-white/[0.08] px-1.5 py-0.5 rounded-xl"
+               style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
             <span className="text-[10px] text-white/60">🔒</span>
           </div>
         )}

@@ -105,7 +105,7 @@ export default function Friends() {
                 className="glass p-4 flex items-center justify-between active:scale-[0.98] transition-transform block"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center">
                     <HiSparkles className="w-5 h-5 text-white" />
                   </div>
                   <div>
@@ -132,7 +132,7 @@ export default function Friends() {
             {matchInvitesReceived.map(inv => (
               <div key={inv.id} className="glass p-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center">
                     <HiSparkles className="w-5 h-5 text-white" />
                   </div>
                   <div>
