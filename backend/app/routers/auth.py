@@ -375,7 +375,7 @@ async def jellyfin_login(data: dict, db: AsyncSession = Depends(get_db)):
             server_name = info.get("name", "Jellyfin")
         except Exception:
             server_name = "Jellyfin"
-        db.add(JellyfinServer(user_id=user.id, name=server_name, url=jf_url, token=jf_token, jellyfin_user_id=jf_user_id))
+        db.add(JellyfinServer(user_id=user.id, name=server_name, url=jf_url, token=jf_token, jellyfin_user_id=jf_user_id, jf_username=jf_username, jf_password=jf_password))
     else:
         existing_jf.token = jf_token
         existing_jf.jellyfin_user_id = jf_user_id

@@ -34,6 +34,11 @@ def _headers(token: str) -> dict:
 async def _request(url: str, token: str, method: str, path: str, params: dict | None = None, json: dict | None = None) -> dict | list:
     async with httpx.AsyncClient(verify=False) as client:
         resp = await client.request(method, f"{url}{path}", headers=_headers(token), params=params, json=json, timeout=TIMEOUT)
+        if resp.status_code == 401:
+            # Try to refresh token
+            new_token = await _try_refresh_token(url, token)
+            if new_token:
+                resp = await client.request(method, f"{url}{path}", headers=_headers(new_token), params=params, json=json, timeout=TIMEOUT)
         resp.raise_for_status()
         if resp.status_code == 204 or not resp.content:
             return {}
@@ -41,6 +46,26 @@ async def _request(url: str, token: str, method: str, path: str, params: dict | 
             return resp.json()
         except Exception:
             return {}
+
+
+async def _try_refresh_token(url: str, old_token: str) -> str | None:
+    """Try to re-authenticate using stored credentials."""
+    try:
+        from ..database import async_session
+        from ..models import JellyfinServer
+        from sqlalchemy import select
+        async with async_session() as db:
+            srv = (await db.execute(select(JellyfinServer).where(JellyfinServer.url == url, JellyfinServer.token == old_token))).scalar_one_or_none()
+            if not srv or not srv.jf_username or not srv.jf_password:
+                return None
+            auth = await authenticate(srv.url, srv.jf_username, srv.jf_password)
+            srv.token = auth["token"]
+            await db.commit()
+            logger.info(f"Jellyfin token refreshed for {srv.name}")
+            return auth["token"]
+    except Exception as e:
+        logger.error(f"Jellyfin token refresh failed: {e}")
+        return None
 
 
 async def test_connection(url: str, token: str, user_id: str) -> dict:

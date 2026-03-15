@@ -45,6 +45,8 @@ async def add_server(data: dict, user: User = Depends(get_current_user), db: Asy
         url=url,
         token=auth["token"],
         jellyfin_user_id=auth["user_id"],
+        jf_username=username,
+        jf_password=password,
     )
     db.add(server)
     await db.flush()

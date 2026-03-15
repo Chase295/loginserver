@@ -269,6 +269,8 @@ class JellyfinServer(Base):
     url: Mapped[str] = mapped_column(String(500), nullable=False)
     token: Mapped[str] = mapped_column(String(255), nullable=False)
     jellyfin_user_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    jf_username: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    jf_password: Mapped[str | None] = mapped_column(String(255), nullable=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
