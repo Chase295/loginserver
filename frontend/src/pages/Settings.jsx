@@ -1631,6 +1631,48 @@ export default function Settings() {
         </div>
 
         <p className="text-[10px] text-white/20 mt-2">Export enthält: alle Watchlisten, Filme/Serien mit Status, Bewertungen, Tags, Notizen, Watch-Progress, Freundesliste</p>
+
+        {/* Admin Full Export/Import */}
+        {user?.is_admin && (
+          <div className="mt-4 pt-4 border-t border-white/[0.06]">
+            <p className="text-xs text-amber-400/70 font-medium mb-2">Admin: Server-Konfiguration</p>
+            <div className="flex gap-3">
+              <button
+                onClick={async () => {
+                  try {
+                    const res = await api.get('/admin/export')
+                    const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' })
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = url
+                    a.download = `admin-config-${new Date().toISOString().slice(0,10)}.json`
+                    a.click()
+                    URL.revokeObjectURL(url)
+                  } catch {}
+                }}
+                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium bg-amber-500/10 text-amber-400 active:bg-amber-500/20"
+              >
+                Config Export
+              </button>
+              <label className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium bg-amber-500/10 text-amber-400 active:bg-amber-500/20 cursor-pointer">
+                Config Import
+                <input type="file" accept=".json" className="hidden" onChange={async (e) => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
+                  try {
+                    const data = JSON.parse(await file.text())
+                    const res = await api.post('/admin/import', data)
+                    const r = res.data
+                    alert(`Import: Sonarr=${r.sonarr} Radarr=${r.radarr} Plex=${r.plex} Jellyfin=${r.jellyfin} Tautulli=${r.tautulli} Profile=${r.profiles} Settings=${r.settings}`)
+                    window.location.reload()
+                  } catch (err) { alert(err.response?.data?.detail || 'Import fehlgeschlagen') }
+                  e.target.value = ''
+                }} />
+              </label>
+            </div>
+            <p className="text-[10px] text-white/20 mt-1.5">Alle Server (Sonarr, Radarr, Plex, Jellyfin, Tautulli) + Download-Profile + Settings. Tokens werden verschlüsselt.</p>
+          </div>
+        )}
       </section>
 
       {/* API Keys */}
