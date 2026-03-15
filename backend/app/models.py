@@ -22,8 +22,15 @@ class User(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
-    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    hashed_password: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    auth_provider: Mapped[str] = mapped_column(String(20), default="local")  # "local" or "plex"
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_installer: Mapped[bool] = mapped_column(Boolean, default=False)
+    plex_username: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    plex_token: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    plex_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    plex_avatar: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    last_tautulli_sync: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     watchlists: Mapped[list["Watchlist"]] = relationship(
@@ -204,3 +211,135 @@ class GroupMember(Base):
 
     group: Mapped["GroupWatchlist"] = relationship(back_populates="members")
     user: Mapped["User"] = relationship()
+
+
+class SystemSetting(Base):
+    __tablename__ = "system_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    key: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    value: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class TautulliServer(Base):
+    __tablename__ = "tautulli_servers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    url: Mapped[str] = mapped_column(String(500), nullable=False)
+    api_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    connections: Mapped[list["UserPlexConnection"]] = relationship(
+        back_populates="server", cascade="all, delete-orphan"
+    )
+
+
+class SonarrServer(Base):
+    __tablename__ = "sonarr_servers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    url: Mapped[str] = mapped_column(String(500), nullable=False)
+    api_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class RadarrServer(Base):
+    __tablename__ = "radarr_servers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    url: Mapped[str] = mapped_column(String(500), nullable=False)
+    api_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class JellyfinServer(Base):
+    __tablename__ = "jellyfin_servers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    url: Mapped[str] = mapped_column(String(500), nullable=False)
+    token: Mapped[str] = mapped_column(String(255), nullable=False)
+    jellyfin_user_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    user: Mapped["User"] = relationship()
+
+
+class PlexServer(Base):
+    __tablename__ = "plex_servers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    url: Mapped[str] = mapped_column(String(500), nullable=False)
+    token: Mapped[str] = mapped_column(String(255), nullable=False)
+    machine_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class SyncLog(Base):
+    __tablename__ = "sync_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    source: Mapped[str] = mapped_column(String(50), nullable=False)  # plex, jellyfin, tautulli, app
+    direction: Mapped[str] = mapped_column(String(20), nullable=False)  # import, export, bidirectional
+    added: Mapped[int] = mapped_column(Integer, default=0)
+    updated: Mapped[int] = mapped_column(Integer, default=0)
+    errors: Mapped[int] = mapped_column(Integer, default=0)
+    details: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class ApiKey(Base):
+    __tablename__ = "api_keys"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    key: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    last_used: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    user: Mapped["User"] = relationship()
+
+
+class DownloadProfile(Base):
+    """Auto-download profiles: match_type → *arr server + settings."""
+    __tablename__ = "download_profiles"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)  # e.g. "Filme", "Anime", "Serien"
+    match_type: Mapped[str] = mapped_column(String(50), nullable=False)  # "movie", "anime", "series"
+    server_type: Mapped[str] = mapped_column(String(20), nullable=False)  # "sonarr" or "radarr"
+    server_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    quality_profile_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    root_folder_path: Mapped[str] = mapped_column(String(500), nullable=False)
+    monitor_strategy: Mapped[str] = mapped_column(String(50), default="none")  # none, all, future, missing
+    auto_search: Mapped[bool] = mapped_column(Boolean, default=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class UserPlexConnection(Base):
+    __tablename__ = "user_plex_connections"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    server_id: Mapped[int] = mapped_column(ForeignKey("tautulli_servers.id", ondelete="CASCADE"))
+    plex_username: Mapped[str] = mapped_column(String(100), nullable=False)
+    plex_token: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    plex_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    last_sync: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    user: Mapped["User"] = relationship()
+    server: Mapped["TautulliServer"] = relationship(back_populates="connections")

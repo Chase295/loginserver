@@ -25,6 +25,9 @@ class UserOut(BaseModel):
     username: str
     email: str
     is_admin: bool = False
+    is_installer: bool = False
+    plex_username: str | None = None
+    last_tautulli_sync: datetime | None = None
     created_at: datetime
 
 
@@ -185,3 +188,70 @@ class GroupOut(BaseModel):
     creator_id: int
     members: list[dict] = []
     created_at: datetime
+
+
+# --- Tautulli ---
+class TautulliConfigUpdate(BaseModel):
+    tautulli_url: str
+    tautulli_api_key: str
+
+
+class TautulliServerCreate(BaseModel):
+    name: str
+    url: str
+    api_key: str
+
+
+class TautulliServerUpdate(BaseModel):
+    name: str | None = None
+    url: str | None = None
+    api_key: str | None = None
+
+
+# --- Sonarr ---
+class SonarrServerCreate(BaseModel):
+    name: str
+    url: str
+    api_key: str
+
+
+class SonarrServerUpdate(BaseModel):
+    name: str | None = None
+    url: str | None = None
+    api_key: str | None = None
+
+
+# --- Radarr ---
+class RadarrServerCreate(BaseModel):
+    name: str
+    url: str
+    api_key: str
+
+
+class RadarrServerUpdate(BaseModel):
+    name: str | None = None
+    url: str | None = None
+    api_key: str | None = None
+
+
+class RadarrAddMovie(BaseModel):
+    tmdb_id: int
+    title: str
+    root_folder_path: str
+    quality_profile_id: int
+    monitored: bool = True
+    minimum_availability: str = "released"
+    search_after_add: bool = False
+
+
+class SonarrAddSeries(BaseModel):
+    tmdb_id: int
+    title: str
+    root_folder_path: str
+    quality_profile_id: int
+    monitored: bool = True
+    season_folder: bool = True
+    monitor_strategy: str = "none"
+    search_after_add: bool = False
+
+

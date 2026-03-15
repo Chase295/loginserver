@@ -21,7 +21,12 @@ export default function Layout() {
         <header className="shrink-0 glass-nav border-b border-white/[0.06] px-4 py-3">
           <div className="flex items-center justify-between">
             <h1 className="text-lg font-bold gradient-text">Watchlist</h1>
-            <span className="text-sm text-white/50">{user?.username}</span>
+            <div className="flex items-center gap-2">
+              {user?.plex_avatar ? (
+                <img src={user.plex_avatar} alt="" className="w-6 h-6 rounded-full" />
+              ) : null}
+              <span className="text-sm text-white/50">{user?.username}</span>
+            </div>
           </div>
         </header>
 

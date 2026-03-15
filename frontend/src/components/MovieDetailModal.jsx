@@ -1,8 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { HiStar, HiTrash, HiLockClosed, HiLockOpen, HiPlus, HiXMark } from 'react-icons/hi2'
 import Modal from './Modal'
 import SeasonTracker from './SeasonTracker'
 import WatchProviders from './WatchProviders'
+import SonarrStatus from './SonarrStatus'
+import RadarrStatus from './RadarrStatus'
+import { useAuth } from '../context/AuthContext'
+import api from '../api/client'
 
 const TMDB_IMG = 'https://image.tmdb.org/t/p'
 
@@ -17,6 +21,7 @@ const STATUS_OPTIONS = [
 const TAG_COLORS = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ef4444', '#14b8a6']
 
 export default function MovieDetailModal({ movie, open, onClose, onUpdate, onDelete, readonly }) {
+  const { user } = useAuth()
   const [newTag, setNewTag] = useState('')
   const [newTagColor, setNewTagColor] = useState(TAG_COLORS[0])
   const [showNotes, setShowNotes] = useState(false)
@@ -103,6 +108,22 @@ export default function MovieDetailModal({ movie, open, onClose, onUpdate, onDel
         <div className="mb-4">
           <label className="text-xs font-medium text-white/40 uppercase tracking-wider mb-2 block">Verfügbar auf</label>
           <WatchProviders mediaType={movie.media_type} tmdbId={movie.tmdb_id} />
+        </div>
+      )}
+
+      {/* Sonarr Status (TV only, installer/admin only) */}
+      {movie.tmdb_id && movie.media_type === 'tv' && (user?.is_admin || user?.is_installer) && (
+        <div className="mb-4">
+          <label className="text-xs font-medium text-white/40 uppercase tracking-wider mb-2 block">Sonarr</label>
+          <SonarrStatus tmdbId={movie.tmdb_id} title={movie.title} />
+        </div>
+      )}
+
+      {/* Radarr Status (Movies only, installer/admin only) */}
+      {movie.tmdb_id && movie.media_type === 'movie' && (user?.is_admin || user?.is_installer) && (
+        <div className="mb-4">
+          <label className="text-xs font-medium text-white/40 uppercase tracking-wider mb-2 block">Radarr</label>
+          <RadarrStatus tmdbId={movie.tmdb_id} title={movie.title} />
         </div>
       )}
 

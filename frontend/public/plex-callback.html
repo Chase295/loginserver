@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html>
+<head><title>Plex verbunden</title></head>
+<body style="background:#12122e;color:white;font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
+<p>Plex erfolgreich verknüpft! Dieses Fenster schließt sich automatisch...</p>
+<script>
+  if (window.opener) window.opener.postMessage('plex-auth-done', '*');
+  setTimeout(() => window.close(), 1500);
+</script>
+</body>
+</html>

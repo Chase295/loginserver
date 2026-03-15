@@ -7,6 +7,52 @@ import WatchProviders from '../components/WatchProviders'
 
 const TMDB_IMG = 'https://image.tmdb.org/t/p'
 
+// TMDB genre ID → name mapping
+const GENRE_MAP = {
+  28: 'Action', 12: 'Abenteuer', 16: 'Animation', 35: 'Komödie', 80: 'Krimi',
+  99: 'Doku', 18: 'Drama', 10751: 'Familie', 14: 'Fantasy', 36: 'Historie',
+  27: 'Horror', 10402: 'Musik', 9648: 'Mystery', 10749: 'Romantik', 878: 'Sci-Fi',
+  10770: 'TV-Film', 53: 'Thriller', 10752: 'Krieg', 37: 'Western',
+  // TV genres
+  10759: 'Action & Abenteuer', 10762: 'Kinder', 10763: 'News', 10764: 'Reality',
+  10765: 'Sci-Fi & Fantasy', 10766: 'Soap', 10767: 'Talk', 10768: 'Krieg & Politik',
+}
+
+const GENRE_COLORS = {
+  'Action': '#ef4444', 'Abenteuer': '#f59e0b', 'Animation': '#8b5cf6', 'Anime': '#ec4899',
+  'Komödie': '#f59e0b', 'Krimi': '#6366f1', 'Doku': '#14b8a6', 'Drama': '#3b82f6',
+  'Familie': '#10b981', 'Fantasy': '#a855f7', 'Horror': '#dc2626', 'Sci-Fi': '#06b6d4',
+  'Thriller': '#64748b', 'Romantik': '#ec4899', 'Mystery': '#8b5cf6',
+}
+
+function buildAutoTags(item) {
+  const genreIds = item.genre_ids || item.genres?.map(g => g.id) || []
+  const tags = []
+
+  // Detect Anime: Animation (16) + Japanese origin
+  const isAnimation = genreIds.includes(16)
+  const isJapanese = (item.origin_country || []).includes('JP') ||
+    (item.original_language === 'ja')
+
+  if (isAnimation && isJapanese) {
+    tags.push({ label: 'Anime', color: GENRE_COLORS['Anime'] || '#ec4899', is_private: false })
+  } else if (isAnimation) {
+    tags.push({ label: 'Animation', color: GENRE_COLORS['Animation'] || '#8b5cf6', is_private: false })
+  }
+
+  // Add top 2 other genres (skip Animation if already handled)
+  for (const id of genreIds) {
+    if (tags.length >= 3) break
+    if (id === 16) continue // skip Animation, handled above
+    const name = GENRE_MAP[id]
+    if (name && !tags.find(t => t.label === name)) {
+      tags.push({ label: name, color: GENRE_COLORS[name] || '#6366f1', is_private: false })
+    }
+  }
+
+  return tags
+}
+
 export default function Discover() {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
@@ -61,13 +107,16 @@ export default function Discover() {
     }
   }
 
-  const addToWatchlist = async (item, { status, rating, notes } = {}) => {
+  const [skipAutoDownload, setSkipAutoDownload] = useState(false)
+
+  const addToWatchlist = async (item, { status, rating, notes, skipAuto } = {}) => {
     const mediaType = item.media_type || (item.title ? 'movie' : 'tv')
     const key = `${item.id}-${mediaType}`
     if (addedIds.has(key)) return
 
     try {
-      const params = selectedWl ? { watchlist_id: selectedWl } : {}
+      const params = { ...(selectedWl ? { watchlist_id: selectedWl } : {}), ...(skipAuto ? { skip_auto_download: true } : {}) }
+      const autoTags = buildAutoTags(item)
       await api.post('/watchlist/movies', {
         title: item.title || item.name,
         year: (item.release_date || item.first_air_date || '').slice(0, 4),
@@ -81,6 +130,7 @@ export default function Discover() {
         status: status || 'watchlist',
         rating: rating || null,
         notes: notes || null,
+        tags: autoTags,
       }, { params })
       setAddedIds(prev => new Set([...prev, key]))
     } catch {}
@@ -356,9 +406,20 @@ export default function Discover() {
                   </div>
                 )}
 
+                {/* Skip auto-download toggle */}
+                <label className="flex items-center gap-3 cursor-pointer py-1">
+                  <input
+                    type="checkbox"
+                    checked={skipAutoDownload}
+                    onChange={e => setSkipAutoDownload(e.target.checked)}
+                    className="rounded border-white/20 bg-white/[0.06] w-4 h-4"
+                  />
+                  <span className="text-xs text-white/40">Nur merken — nicht automatisch installieren</span>
+                </label>
+
                 {/* Add Button */}
                 <button
-                  onClick={() => addToWatchlist(detail, { status: addStatus, rating: addRating, notes: addNotes })}
+                  onClick={() => addToWatchlist(detail, { status: addStatus, rating: addRating, notes: addNotes, skipAuto: skipAutoDownload })}
                   className="btn-primary w-full active:scale-[0.97]"
                 >
                   <HiPlus className="w-4 h-4 inline mr-2" />Hinzufügen

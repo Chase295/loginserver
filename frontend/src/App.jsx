@@ -9,7 +9,6 @@ import Discover from './pages/Discover'
 import Friends from './pages/Friends'
 import FriendWatchlist from './pages/FriendWatchlist'
 import MatchLobby from './pages/MatchLobby'
-import Groups from './pages/Groups'
 import Settings from './pages/Settings'
 
 function ProtectedRoute({ children }) {
@@ -42,7 +41,6 @@ export default function App() {
         <Route path="friends" element={<Friends />} />
         <Route path="friends/:username" element={<FriendWatchlist />} />
         <Route path="match/:matchId" element={<MatchLobby />} />
-        <Route path="groups" element={<Groups />} />
         <Route path="settings" element={<Settings />} />
       </Route>
     </Routes>

@@ -54,3 +54,9 @@ async def require_admin(user: User = Depends(get_current_user)) -> User:
     if not user.is_admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin required")
     return user
+
+
+async def require_installer(user: User = Depends(get_current_user)) -> User:
+    if not user.is_admin and not user.is_installer:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Installer or admin required")
+    return user

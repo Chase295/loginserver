@@ -2,12 +2,15 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useAuth } from '../context/AuthContext'
+import api from '../api/client'
 
 export default function Login() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [plexLoading, setPlexLoading] = useState(false)
+  const [showLocal, setShowLocal] = useState(false)
   const { login } = useAuth()
   const navigate = useNavigate()
 
@@ -22,6 +25,74 @@ export default function Login() {
       setError('Ungültige Anmeldedaten')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loginWithPlex = async () => {
+    setPlexLoading(true)
+    setError('')
+
+    // Open window FIRST (must be in direct click handler, before any await)
+    const authWindow = window.open('about:blank', 'plex_auth', 'width=800,height=600')
+
+    try {
+      // Step 1: Get PIN
+      const pinRes = await api.post('/auth/plex/pin')
+      const { pin_id, auth_url } = pinRes.data
+
+      // Step 2: Navigate the already-open window to Plex auth
+      if (authWindow) {
+        authWindow.location.href = auth_url
+      } else {
+        // Popup was blocked - fallback to same-tab redirect
+        setPlexLoading(false)
+        setError('Popup wurde blockiert. Bitte Popup-Blocker deaktivieren oder:')
+        window.location.href = auth_url
+        return
+      }
+
+      // Step 3: Poll for completion
+      let attempts = 0
+      const poll = setInterval(async () => {
+        attempts++
+        if (attempts > 120) {
+          clearInterval(poll)
+          setPlexLoading(false)
+          setError('Zeitüberschreitung — bitte erneut versuchen')
+          return
+        }
+        try {
+          const callbackRes = await api.post('/auth/plex/callback', { pin_id })
+          if (callbackRes.data.status === 'waiting') {
+            // Still waiting for user to authorize
+            return
+          }
+          // Success - got access_token
+          clearInterval(poll)
+          if (authWindow && !authWindow.closed) authWindow.close()
+          localStorage.setItem('token', callbackRes.data.access_token)
+          window.location.href = '/'
+        } catch (e) {
+          clearInterval(poll)
+          setPlexLoading(false)
+          setError(e.response?.data?.detail || 'Plex Login fehlgeschlagen')
+        }
+      }, 2000)
+
+      // Also stop if window is closed
+      const windowCheck = setInterval(() => {
+        if (authWindow && authWindow.closed) {
+          clearInterval(windowCheck)
+          // Give it a few more seconds in case auth completed
+          setTimeout(() => {
+            setPlexLoading(false)
+          }, 3000)
+        }
+      }, 500)
+
+    } catch (e) {
+      setPlexLoading(false)
+      setError(e.response?.data?.detail || 'Plex Login konnte nicht gestartet werden')
     }
   }
 
@@ -44,48 +115,85 @@ export default function Login() {
           <p className="text-white/40 text-sm mt-1">Anmelden</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
-            <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2 text-sm text-red-400">
-              {error}
-            </div>
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2 text-sm text-red-400 mb-4">
+            {error}
+          </div>
+        )}
+
+        {/* Plex Login - primary */}
+        <button
+          onClick={loginWithPlex}
+          disabled={plexLoading}
+          className="w-full flex items-center justify-center gap-3 py-3.5 px-4 rounded-xl text-sm font-semibold bg-[#e5a00d] text-black active:bg-[#c98c0b] transition-all disabled:opacity-50 mb-4"
+        >
+          {plexLoading ? (
+            <>
+              <span className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+              Warte auf Plex...
+            </>
+          ) : (
+            <>
+              <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
+                <path d="M12 0L1.5 6v12L12 24l10.5-6V6L12 0zm0 2.5L20 7.5v9L12 21.5 4 16.5v-9L12 2.5z"/>
+                <path d="M12 5L6 8.5v7L12 19l6-3.5v-7L12 5z"/>
+              </svg>
+              Mit Plex anmelden
+            </>
           )}
+        </button>
 
-          <input
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="Benutzername"
-            className="glass-input"
-            required
-            autoComplete="username"
-          />
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Passwort"
-            className="glass-input"
-            required
-            autoComplete="current-password"
-          />
-
-          <button type="submit" disabled={loading} className="btn-primary w-full disabled:opacity-50">
-            {loading ? (
-              <span className="flex items-center justify-center gap-2">
-                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Laden...
-              </span>
-            ) : 'Anmelden'}
+        {/* Divider */}
+        <div className="flex items-center gap-3 mb-4">
+          <div className="flex-1 h-px bg-white/[0.06]" />
+          <button
+            onClick={() => setShowLocal(!showLocal)}
+            className="text-[11px] text-white/20 active:text-white/40"
+          >
+            {showLocal ? 'Ausblenden' : 'Lokaler Login'}
           </button>
-        </form>
+          <div className="flex-1 h-px bg-white/[0.06]" />
+        </div>
 
-        <p className="text-center text-white/40 text-sm mt-6">
-          Kein Account?{' '}
-          <Link to="/register" className="text-primary-400 hover:text-primary-300 transition-colors">
-            Registrieren
-          </Link>
-        </p>
+        {/* Local login - secondary */}
+        {showLocal && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+          >
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Benutzername"
+                className="glass-input"
+                required
+                autoComplete="username"
+              />
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Passwort"
+                className="glass-input"
+                required
+                autoComplete="current-password"
+              />
+
+              <button type="submit" disabled={loading} className="btn-primary w-full disabled:opacity-50">
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Laden...
+                  </span>
+                ) : 'Anmelden'}
+              </button>
+            </form>
+
+            <p className="text-center text-white/15 text-[10px] mt-3">Nur für Notfall-Zugang</p>
+          </motion.div>
+        )}
       </motion.div>
     </div>
   )

@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { HiXMark } from 'react-icons/hi2'
 
@@ -10,18 +11,18 @@ export default function Modal({ open, onClose, title, children, large }) {
     }
   }, [open])
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          {/* Backdrop */}
+        <div className="fixed inset-0 flex items-center justify-center p-4" style={{ zIndex: 9999 }}>
+          {/* Backdrop — covers everything */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
             onClick={onClose}
-            className="absolute inset-0 bg-black/70"
+            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
           />
 
           {/* Modal */}
@@ -30,7 +31,7 @@ export default function Modal({ open, onClose, title, children, large }) {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.93 }}
             transition={{ duration: 0.15 }}
-            className={`relative w-full ${large ? 'max-w-2xl' : 'max-w-lg'}
+            className={`relative w-full ${large ? 'max-w-4xl' : 'max-w-3xl'}
               rounded-2xl bg-[#12122e] border border-white/[0.1]
               max-h-[85dvh] flex flex-col
             `}
@@ -51,6 +52,7 @@ export default function Modal({ open, onClose, title, children, large }) {
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   )
 }
