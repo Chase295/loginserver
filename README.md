@@ -114,6 +114,69 @@ Nach dem ersten Login werden automatisch alle Plex-Server entdeckt und ein Full-
 
 ---
 
+## MCP-Server (Model Context Protocol)
+
+Die App hat einen eingebauten MCP-Server mit **21 Tools**, den du direkt in Claude, ChatGPT oder anderen MCP-faehigen Clients nutzen kannst.
+
+### Transports
+
+| Transport | URL | Beschreibung |
+|---|---|---|
+| **HTTP** (Streamable) | `https://deine-domain.de/mcp` | Standard MCP via HTTP POST |
+| **SSE** | `https://deine-domain.de/sse` | Server-Sent Events Stream |
+
+### Authentifizierung
+
+**API Key** (empfohlen): Erstelle einen Key unter Einstellungen &rarr; API Keys. Uebergib ihn als Bearer Token oder Query-Parameter:
+
+```
+Authorization: Bearer dein-api-key
+# oder
+https://deine-domain.de/mcp?key=dein-api-key
+```
+
+**OAuth 2.0**: Plex-basierter OAuth Flow fuer Browser-Clients (z.B. Claude Pro).
+
+### Claude Desktop / Claude Code Konfiguration
+
+```json
+{
+  "mcpServers": {
+    "watchlist": {
+      "url": "https://deine-domain.de/mcp?key=DEIN_API_KEY"
+    }
+  }
+}
+```
+
+### Verfuegbare Tools (21)
+
+| Tool | Beschreibung |
+|---|---|
+| `search_movie` | Film/Serie auf TMDB suchen |
+| `get_movie_details` | Details zu einem TMDB-Eintrag |
+| `get_trending` | Aktuelle Trending-Filme/Serien |
+| `add_to_watchlist` | Zur Watchlist hinzufuegen |
+| `remove_from_watchlist` | Von Watchlist entfernen |
+| `update_status` | Status aendern (watching/watched/etc.) |
+| `get_watchlist` | Eigene Watchlist abrufen |
+| `get_friends_watchlist` | Watchlist eines Freundes |
+| `get_recommendations` | Empfehlungen basierend auf Watchlist |
+| `check_plex_status` | Ist ein Titel auf Plex verfuegbar? |
+| `check_jellyfin_status` | Ist ein Titel auf Jellyfin verfuegbar? |
+| `check_sonarr_status` | Serie auf Sonarr pruefen |
+| `check_radarr_status` | Film auf Radarr pruefen |
+| `add_to_sonarr` | Serie zu Sonarr hinzufuegen |
+| `add_to_radarr` | Film zu Radarr hinzufuegen |
+| `delete_from_sonarr` | Serie von Sonarr entfernen |
+| `delete_from_radarr` | Film von Radarr entfernen |
+| `search_releases` | Verfuegbare Releases suchen |
+| `grab_release` | Release herunterladen |
+| `get_stats` | Watchlist-Statistiken |
+| `get_calendar` | Kommende Episoden (Sonarr-Kalender) |
+
+---
+
 ## Tech Stack
 
 | Komponente | Technologie |
