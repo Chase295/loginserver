@@ -55,7 +55,8 @@ async def _try_refresh_token(url: str, old_token: str) -> str | None:
         from ..models import JellyfinServer
         from sqlalchemy import select
         async with async_session() as db:
-            srv = (await db.execute(select(JellyfinServer).where(JellyfinServer.url == url, JellyfinServer.token == old_token))).scalar_one_or_none()
+            # Find by URL first (token might have changed), then by token as fallback
+            srv = (await db.execute(select(JellyfinServer).where(JellyfinServer.url == url, JellyfinServer.jf_username != None))).scalars().first()
             if not srv or not srv.jf_username or not srv.jf_password:
                 return None
             auth = await authenticate(srv.url, srv.jf_username, srv.jf_password)

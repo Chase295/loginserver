@@ -244,12 +244,13 @@ async def _jellyfin_sync_loop():
 
 
 async def _nightly_full_sync():
-    """Run full Plex + Jellyfin sync once at 3 AM."""
+    """Run full Plex + Jellyfin + Tautulli sync once at 3 AM for ALL users."""
     from .routers.plex import _run_full_plex_sync
     from .routers.jellyfin import _run_jellyfin_sync
+    from .models import TautulliServer, UserPlexConnection
+    from .services.tautulli import sync_user_history
 
     while True:
-        # Calculate seconds until 3:00 AM
         import datetime
         now = datetime.datetime.now()
         target = now.replace(hour=3, minute=0, second=0, microsecond=0)
@@ -261,14 +262,39 @@ async def _nightly_full_sync():
 
         try:
             async with async_session() as db:
-                users = (await db.execute(select(User).where(User.plex_token != None))).scalars().all()
+                users = (await db.execute(select(User))).scalars().all()
 
             for user in users:
                 try:
-                    logger.info(f"Nightly full sync starting for {user.username}")
-                    await _run_full_plex_sync(user.id)
-                    await _run_jellyfin_sync(user.id)
-                    logger.info(f"Nightly full sync completed for {user.username}")
+                    logger.info(f"Nightly sync starting for {user.username}")
+
+                    # Plex (if user has token)
+                    if user.plex_token:
+                        try:
+                            await _run_full_plex_sync(user.id)
+                        except Exception as e:
+                            logger.error(f"Nightly Plex sync failed for {user.username}: {e}")
+
+                    # Jellyfin
+                    try:
+                        await _run_jellyfin_sync(user.id)
+                    except Exception as e:
+                        logger.error(f"Nightly Jellyfin sync failed for {user.username}: {e}")
+
+                    # Tautulli
+                    try:
+                        async with async_session() as db:
+                            conn = (await db.execute(select(UserPlexConnection).where(UserPlexConnection.user_id == user.id))).scalar_one_or_none()
+                            if conn:
+                                srv = (await db.execute(select(TautulliServer).where(TautulliServer.id == conn.server_id, TautulliServer.enabled == True))).scalar_one_or_none()
+                                if srv:
+                                    await sync_user_history(user, conn, srv, db)
+                                    await db.commit()
+                                    logger.info(f"Nightly Tautulli sync done for {user.username}")
+                    except Exception as e:
+                        logger.error(f"Nightly Tautulli sync failed for {user.username}: {e}")
+
+                    logger.info(f"Nightly sync completed for {user.username}")
                 except Exception as e:
                     logger.error(f"Nightly sync failed for {user.username}: {e}")
         except Exception as e:
