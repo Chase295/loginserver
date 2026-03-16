@@ -267,6 +267,34 @@ async def plex_status(tmdb_id: int, media_type: str = Query("movie"), user: User
                 "viewCount": item.get("viewCount", 0),
                 "lastViewedAt": item.get("lastViewedAt"),
             }
+            # Get audio/subtitle stream languages from metadata
+            if item.get("ratingKey"):
+                try:
+                    from ..services.plex import _request
+                    stream_data = await asyncio.wait_for(
+                        _request(srv["url"], token, f"/library/metadata/{item['ratingKey']}", {"includeStreams": 1}),
+                        timeout=5,
+                    )
+                    metadata_items = stream_data.get("MediaContainer", {}).get("Metadata", [])
+                    audio_langs: list[str] = []
+                    sub_langs: list[str] = []
+                    if metadata_items:
+                        for media_entry in metadata_items[0].get("Media", []):
+                            for part in media_entry.get("Part", []):
+                                for stream in part.get("Stream", []):
+                                    lang = stream.get("language") or stream.get("languageCode") or stream.get("languageTag")
+                                    if not lang:
+                                        continue
+                                    stype = stream.get("streamType")
+                                    if stype == 2 and lang not in audio_langs:
+                                        audio_langs.append(lang)
+                                    elif stype == 3 and lang not in sub_langs:
+                                        sub_langs.append(lang)
+                    result["audioLanguages"] = audio_langs
+                    result["subtitleLanguages"] = sub_langs
+                except Exception:
+                    result["audioLanguages"] = []
+                    result["subtitleLanguages"] = []
             # For TV: get season info
             if media_type == "tv" and item.get("ratingKey"):
                 try:

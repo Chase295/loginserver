@@ -31,6 +31,19 @@ async def providers(media_type: str, tmdb_id: int, user: User = Depends(get_curr
     return await tmdb.watch_providers(media_type, tmdb_id)
 
 
+# Simple in-process cache for translations (language codes don't change)
+_translations_cache: dict[str, list[str]] = {}
+
+
+@router.get("/{media_type}/{tmdb_id}/languages")
+async def languages(media_type: str, tmdb_id: int, user: User = Depends(get_current_user)):
+    cache_key = f"{media_type}_{tmdb_id}"
+    if cache_key not in _translations_cache:
+        tmdb = TMDBService()
+        _translations_cache[cache_key] = await tmdb.translations(media_type, tmdb_id)
+    return {"languages": _translations_cache[cache_key]}
+
+
 @router.get("/tv/{tmdb_id}/season/{season_number}")
 async def season(tmdb_id: int, season_number: int, user: User = Depends(get_current_user)):
     tmdb = TMDBService()

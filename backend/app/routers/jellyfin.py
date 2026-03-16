@@ -88,7 +88,31 @@ async def jellyfin_status(tmdb_id: int, media_type: str = Query("movie"), user: 
         try:
             item = await jf_service.find_by_tmdb(srv.url, srv.token, srv.jellyfin_user_id, tmdb_id, media_type)
             if item:
-                found.append({"server_name": srv.name, **item})
+                entry = {"server_name": srv.name, **item}
+                # Fetch MediaStreams for audio/subtitle languages
+                try:
+                    item_detail = await jf_service._request(
+                        srv.url, srv.token, "GET",
+                        f"/Users/{srv.jellyfin_user_id}/Items/{item['id']}",
+                        params={"Fields": "MediaStreams"},
+                    )
+                    audio_langs: list[str] = []
+                    sub_langs: list[str] = []
+                    for stream in item_detail.get("MediaStreams", []):
+                        lang = stream.get("Language") or stream.get("DisplayLanguage")
+                        if not lang or lang in ("und", "Unknown"):
+                            continue
+                        stype = stream.get("Type", "")
+                        if stype == "Audio" and lang not in audio_langs:
+                            audio_langs.append(lang)
+                        elif stype == "Subtitle" and lang not in sub_langs:
+                            sub_langs.append(lang)
+                    entry["audioLanguages"] = audio_langs
+                    entry["subtitleLanguages"] = sub_langs
+                except Exception:
+                    entry["audioLanguages"] = []
+                    entry["subtitleLanguages"] = []
+                found.append(entry)
         except Exception:
             continue
     return {"found": len(found) > 0, "servers": found}

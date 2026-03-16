@@ -38,3 +38,7 @@ class TMDBService:
         data = await self._get(f"/{media_type}/{tmdb_id}/watch/providers")
         # Return DE providers, fallback to empty
         return data.get("results", {}).get("DE", {})
+
+    async def translations(self, media_type: str, tmdb_id: int) -> list[str]:
+        data = await self._get(f"/{media_type}/{tmdb_id}/translations")
+        return [t.get("iso_639_1") for t in data.get("translations", []) if t.get("iso_639_1")]
