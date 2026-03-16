@@ -124,6 +124,7 @@ export default function WatchProviders({ mediaType, tmdbId }) {
   const [tmdbLanguages, setTmdbLanguages] = useState([])
   const [loading, setLoading] = useState(true)
   const [expandedPlex, setExpandedPlex] = useState(null)
+  const [expandedJellyfin, setExpandedJellyfin] = useState(null)
 
   useEffect(() => {
     if (!tmdbId || !mediaType) return
@@ -276,42 +277,61 @@ export default function WatchProviders({ mediaType, tmdbId }) {
         </div>
       )}
 
-      {/* Jellyfin servers */}
+      {/* Jellyfin servers — same layout as Plex */}
       {jellyfinServers.length > 0 && (
         <div>
           <p className="text-[11px] text-white/40 uppercase tracking-wider mb-1.5">Jellyfin</p>
           <div className="space-y-1.5">
-            {jellyfinServers.map((srv, i) => (
-              <div key={i} className="bg-purple-500/10 border border-purple-500/20 rounded-xl px-2.5 py-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded bg-purple-500/30 flex items-center justify-center shrink-0">
-                    <span className="text-[10px] font-bold text-purple-300">JF</span>
+            {jellyfinServers.map((srv, i) => {
+              const isExpanded = expandedJellyfin === i
+              return (
+                <div key={i} className="bg-purple-500/10 border border-purple-500/20 rounded-xl overflow-hidden">
+                  <div className="flex items-center gap-2 px-2.5 py-2">
+                    <div className="w-6 h-6 rounded bg-purple-500/30 flex items-center justify-center shrink-0">
+                      <span className="text-[10px] font-bold text-purple-300">JF</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs text-purple-300 font-medium">{srv.server_name}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 font-medium flex items-center gap-0.5">
+                        <HiCheck className="w-3 h-3" /> Vorhanden
+                      </span>
+                      {srv.played && <span className="text-[10px] text-purple-300/60">Gesehen</span>}
+                      {srv.playCount > 0 && (
+                        <span className="text-[10px] text-white/40 flex items-center gap-0.5">
+                          <HiPlay className="w-3 h-3" />{srv.playCount}x
+                        </span>
+                      )}
+                      <button onClick={() => setExpandedJellyfin(isExpanded ? null : i)} className="p-1 text-white/30">
+                        {isExpanded ? <HiChevronUp className="w-3.5 h-3.5" /> : <HiChevronDown className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
                   </div>
-                  <span className="text-xs text-purple-300 font-medium flex-1">{srv.server_name}</span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 font-medium flex items-center gap-0.5">
-                    <HiCheck className="w-3 h-3" /> Vorhanden
-                  </span>
-                  {srv.played && <span className="text-[10px] text-white/40">Gesehen</span>}
+                  {isExpanded && (
+                    <div className="px-2.5 pb-2 space-y-1.5">
+                      {/* Audio / Subtitle language pills */}
+                      {(srv.audioLanguages?.length > 0 || srv.subtitleLanguages?.length > 0) && (
+                        <div className="space-y-1">
+                          {srv.audioLanguages?.length > 0 && (
+                            <div>
+                              <p className="text-[9px] text-white/25 mb-0.5">Audio</p>
+                              <LangPills languages={srv.audioLanguages} color="green" />
+                            </div>
+                          )}
+                          {srv.subtitleLanguages?.length > 0 && (
+                            <div>
+                              <p className="text-[9px] text-white/25 mb-0.5">Untertitel</p>
+                              <LangPills languages={srv.subtitleLanguages} color="blue" />
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-                {/* Jellyfin audio/subtitle languages */}
-                {(srv.audioLanguages?.length > 0 || srv.subtitleLanguages?.length > 0) && (
-                  <div className="space-y-1 mt-1.5 pt-1.5 border-t border-purple-500/10">
-                    {srv.audioLanguages?.length > 0 && (
-                      <div>
-                        <p className="text-[9px] text-white/25 mb-0.5">Audio</p>
-                        <LangPills languages={srv.audioLanguages} color="green" />
-                      </div>
-                    )}
-                    {srv.subtitleLanguages?.length > 0 && (
-                      <div>
-                        <p className="text-[9px] text-white/25 mb-0.5">Untertitel</p>
-                        <LangPills languages={srv.subtitleLanguages} color="blue" />
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
