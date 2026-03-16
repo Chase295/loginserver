@@ -642,6 +642,104 @@ async def delete_movie(movie_id: int, user: User = Depends(get_current_user), db
 
 
 # --- Friend Watchlist View ---
+@router.get("/user/{username}/lists")
+async def get_user_watchlists(username: str, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Get visible watchlists of another user (with movie counts)."""
+    target = await db.execute(select(User).where(User.username == username))
+    target_user = target.scalar_one_or_none()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Check friendship
+    friendship = await db.execute(
+        select(Friend).where(
+            Friend.status == "accepted",
+            or_(
+                (Friend.sender_id == user.id) & (Friend.receiver_id == target_user.id),
+                (Friend.sender_id == target_user.id) & (Friend.receiver_id == user.id),
+            ),
+        )
+    )
+    is_friend = friendship.scalar_one_or_none() is not None
+
+    if not is_friend and target_user.id != user.id:
+        raise HTTPException(status_code=403, detail="Not friends")
+
+    result = await db.execute(select(Watchlist).where(Watchlist.owner_id == target_user.id))
+    watchlists = result.scalars().all()
+
+    out = []
+    for wl in watchlists:
+        if wl.visibility == "private" and target_user.id != user.id:
+            continue
+        count = (await db.execute(select(func.count()).select_from(Movie).where(Movie.watchlist_id == wl.id))).scalar()
+        out.append({
+            "id": wl.id,
+            "name": wl.name,
+            "icon": wl.icon,
+            "visibility": wl.visibility,
+            "is_default": wl.is_default,
+            "movie_count": count,
+        })
+    return out
+
+
+@router.get("/user/{username}/movies", response_model=list[MovieOut])
+async def get_user_watchlist_movies(
+    username: str,
+    watchlist_id: int | None = Query(None),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get movies from a specific or all visible watchlists of another user."""
+    target = await db.execute(select(User).where(User.username == username))
+    target_user = target.scalar_one_or_none()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    friendship = await db.execute(
+        select(Friend).where(
+            Friend.status == "accepted",
+            or_(
+                (Friend.sender_id == user.id) & (Friend.receiver_id == target_user.id),
+                (Friend.sender_id == target_user.id) & (Friend.receiver_id == user.id),
+            ),
+        )
+    )
+    is_friend = friendship.scalar_one_or_none() is not None
+
+    if not is_friend and target_user.id != user.id:
+        raise HTTPException(status_code=403, detail="Not friends")
+
+    result = await db.execute(select(Watchlist).where(Watchlist.owner_id == target_user.id))
+    watchlists = result.scalars().all()
+
+    all_movies = []
+    for wl in watchlists:
+        if wl.visibility == "private" and target_user.id != user.id:
+            continue
+        if watchlist_id and wl.id != watchlist_id:
+            continue
+
+        movies_result = await db.execute(
+            select(Movie).where(Movie.watchlist_id == wl.id).order_by(Movie.created_at.desc())
+        )
+        movies = movies_result.scalars().all()
+
+        if target_user.id != user.id:
+            movies = [m for m in movies if not m.is_private]
+            for movie in movies:
+                if movie.tags:
+                    movie.tags = [t for t in movie.tags if not t.get("is_private", False)]
+
+        all_movies.extend(movies)
+
+    to_enrich = [m for m in all_movies if _needs_enrich(m)]
+    if to_enrich:
+        await _auto_enrich(to_enrich, db)
+    return all_movies
+
+
 @router.get("/user/{username}", response_model=list[MovieOut])
 async def get_user_watchlist(username: str, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     target = await db.execute(select(User).where(User.username == username))
@@ -661,21 +759,15 @@ async def get_user_watchlist(username: str, user: User = Depends(get_current_use
     )
     is_friend = friendship.scalar_one_or_none() is not None
 
-    # Get all their watchlists based on visibility
+    if not is_friend and target_user.id != user.id:
+        raise HTTPException(status_code=403, detail="Not friends")
+
     result = await db.execute(select(Watchlist).where(Watchlist.owner_id == target_user.id))
     watchlists = result.scalars().all()
-
-    if target_user.id != user.id and not is_friend:
-        # Non-friends can only see public watchlists
-        has_public = any(wl.visibility == "public" for wl in watchlists)
-        if not has_public:
-            raise HTTPException(status_code=403, detail="Not friends")
 
     all_movies = []
     for wl in watchlists:
         if wl.visibility == "private" and target_user.id != user.id:
-            continue
-        if wl.visibility == "friends" and not is_friend and target_user.id != user.id:
             continue
 
         movies_result = await db.execute(

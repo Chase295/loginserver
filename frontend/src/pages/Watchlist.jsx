@@ -478,8 +478,8 @@ export default function Watchlist() {
           />
           <div>
             <label className="text-xs text-white/40 uppercase tracking-wider mb-2 block">Sichtbarkeit</label>
-            <div className="grid grid-cols-3 gap-2">
-              {['public', 'friends', 'private'].map(v => (
+            <div className="grid grid-cols-2 gap-2">
+              {['friends', 'private'].map(v => (
                 <button
                   key={v}
                   type="button"
@@ -488,7 +488,7 @@ export default function Watchlist() {
                     newWl.visibility === v ? 'bg-primary-500/20 text-primary-400 border border-primary-400/30' : 'bg-white/[0.04] text-white/50'
                   }`}
                 >
-                  {v === 'public' ? '🌍 Öffentlich' : v === 'friends' ? '👥 Freunde' : '🔒 Privat'}
+                  {v === 'friends' ? '👥 Freunde' : '🔒 Privat'}
                 </button>
               ))}
             </div>
@@ -523,8 +523,8 @@ export default function Watchlist() {
               onChange={(e) => setShowEdit({...showEdit, name: e.target.value})}
               className="glass-input"
             />
-            <div className="grid grid-cols-3 gap-2">
-              {['public', 'friends', 'private'].map(v => (
+            <div className="grid grid-cols-2 gap-2">
+              {['friends', 'private'].map(v => (
                 <button
                   key={v}
                   onClick={() => setShowEdit({...showEdit, visibility: v})}
@@ -532,7 +532,7 @@ export default function Watchlist() {
                     showEdit.visibility === v ? 'bg-primary-500/20 text-primary-400 border border-primary-400/30' : 'bg-white/[0.04] text-white/50'
                   }`}
                 >
-                  {v === 'public' ? '🌍 Öffentlich' : v === 'friends' ? '👥 Freunde' : '🔒 Privat'}
+                  {v === 'friends' ? '👥 Freunde' : '🔒 Privat'}
                 </button>
               ))}
             </div>

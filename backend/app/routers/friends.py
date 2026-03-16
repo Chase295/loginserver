@@ -27,8 +27,14 @@ async def send_request(data: FriendRequest, user: User = Depends(get_current_use
             )
         )
     )
-    if existing.scalar_one_or_none():
-        raise HTTPException(status_code=409, detail="Friend request already exists")
+    old = existing.scalar_one_or_none()
+    if old:
+        if old.status == "rejected":
+            # Allow re-sending after rejection
+            await db.delete(old)
+            await db.flush()
+        else:
+            raise HTTPException(status_code=409, detail="Friend request already exists")
 
     friend = Friend(sender_id=user.id, receiver_id=receiver.id)
     db.add(friend)
@@ -46,6 +52,29 @@ async def get_requests(user: User = Depends(get_current_user), db: AsyncSession 
         {"id": f.id, "sender_id": f.sender_id, "sender_username": u.username, "created_at": str(f.created_at)}
         for f, u in result.all()
     ]
+
+
+@router.get("/requests/sent", response_model=list[dict])
+async def get_sent_requests(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(Friend, User)
+        .join(User, Friend.receiver_id == User.id)
+        .where(Friend.sender_id == user.id, Friend.status.in_(["pending", "rejected"]))
+    )
+    return [
+        {"id": f.id, "receiver_id": f.receiver_id, "receiver_username": u.username, "status": f.status, "created_at": str(f.created_at)}
+        for f, u in result.all()
+    ]
+
+
+@router.delete("/request/{request_id}")
+async def cancel_request(request_id: int, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Friend).where(Friend.id == request_id, Friend.sender_id == user.id))
+    friend = result.scalar_one_or_none()
+    if not friend:
+        raise HTTPException(status_code=404)
+    await db.delete(friend)
+    return {"message": "Request cancelled"}
 
 
 @router.post("/respond")

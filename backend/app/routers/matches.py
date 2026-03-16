@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth import get_current_user
 from ..database import get_db
-from ..models import Match, MatchInvitation, MatchLike, MatchPoolLink, Movie, User, Watchlist
+from ..models import Match, MatchInvitation, MatchLike, MatchPoolLink, MatchReadyStatus, Movie, User, Watchlist
 from ..schemas import MatchInviteCreate, MatchInviteResponse, MatchLikeCreate, MatchOut
 
 router = APIRouter(prefix="/api/match", tags=["matches"])
@@ -30,12 +30,56 @@ async def _get_pool_movie_ids(match_id: int, db: AsyncSession) -> set[int]:
     return all_ids
 
 
+async def _get_ready_status(match_id: int, player_id: int, db: AsyncSession) -> bool:
+    """Get a player's ready status for a match."""
+    result = await db.execute(
+        select(MatchReadyStatus).where(
+            MatchReadyStatus.match_id == match_id,
+            MatchReadyStatus.player_id == player_id,
+        )
+    )
+    status = result.scalar_one_or_none()
+    return status.is_ready if status else False
+
+
+async def _build_match_out(m: Match, db: AsyncSession) -> MatchOut:
+    """Build a MatchOut with usernames and ready statuses."""
+    p1 = await db.execute(select(User.username).where(User.id == m.player1_id))
+    p2 = await db.execute(select(User.username).where(User.id == m.player2_id))
+    p1_ready = await _get_ready_status(m.id, m.player1_id, db)
+    p2_ready = await _get_ready_status(m.id, m.player2_id, db)
+    return MatchOut(
+        id=m.id, player1_id=m.player1_id, player2_id=m.player2_id,
+        player1_username=p1.scalar(), player2_username=p2.scalar(),
+        player1_ready=p1_ready, player2_ready=p2_ready,
+        status=m.status, created_at=m.created_at,
+    )
+
+
+async def _reset_player_ready(match_id: int, player_id: int, db: AsyncSession):
+    """Reset a player's ready status to false and revert match to lobby if active."""
+    result = await db.execute(
+        select(MatchReadyStatus).where(
+            MatchReadyStatus.match_id == match_id,
+            MatchReadyStatus.player_id == player_id,
+        )
+    )
+    status = result.scalar_one_or_none()
+    if status and status.is_ready:
+        status.is_ready = False
+        # If match was active, revert to lobby
+        match_result = await db.execute(select(Match).where(Match.id == match_id))
+        match = match_result.scalar_one_or_none()
+        if match and match.status == "active":
+            match.status = "lobby"
+
+
 # --- Invites ---
 @router.post("/invite", status_code=201)
 async def send_invite(data: MatchInviteCreate, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     existing = await db.execute(
         select(Match).where(
-            Match.status == "active",
+            Match.status.in_(["active", "lobby"]),
             or_(
                 (Match.player1_id == user.id) & (Match.player2_id == data.receiver_id),
                 (Match.player1_id == data.receiver_id) & (Match.player2_id == user.id),
@@ -62,8 +106,12 @@ async def respond_invite(data: MatchInviteResponse, user: User = Depends(get_cur
 
     if data.action == "accept":
         inv.status = "accepted"
-        match = Match(player1_id=inv.sender_id, player2_id=inv.receiver_id, status="active")
+        match = Match(player1_id=inv.sender_id, player2_id=inv.receiver_id, status="lobby")
         db.add(match)
+        await db.flush()
+        # Create ready status rows for both players
+        db.add(MatchReadyStatus(match_id=match.id, player_id=inv.sender_id, is_ready=False))
+        db.add(MatchReadyStatus(match_id=match.id, player_id=inv.receiver_id, is_ready=False))
         await db.flush()
         return {"match_id": match.id, "message": "Match created"}
     else:
@@ -103,37 +151,63 @@ async def sent_invites(user: User = Depends(get_current_user), db: AsyncSession 
     return [{"id": inv.id, "receiver_id": inv.receiver_id, "receiver_username": u.username} for inv, u in result.all()]
 
 
-# --- Active Matches ---
+# --- Active Matches (includes both lobby and active) ---
 @router.get("/active", response_model=list[MatchOut])
 async def active_matches(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(Match).where(
-            Match.status == "active",
+            Match.status.in_(["lobby", "active"]),
             or_(Match.player1_id == user.id, Match.player2_id == user.id),
         )
     )
     out = []
     for m in result.scalars().all():
-        p1 = await db.execute(select(User.username).where(User.id == m.player1_id))
-        p2 = await db.execute(select(User.username).where(User.id == m.player2_id))
-        out.append(MatchOut(
-            id=m.id, player1_id=m.player1_id, player2_id=m.player2_id,
-            player1_username=p1.scalar(), player2_username=p2.scalar(),
-            status=m.status, created_at=m.created_at,
-        ))
+        out.append(await _build_match_out(m, db))
     return out
 
 
 @router.get("/{match_id}", response_model=MatchOut)
 async def get_match(match_id: int, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     m = await _get_match(match_id, user.id, db)
-    p1 = await db.execute(select(User.username).where(User.id == m.player1_id))
-    p2 = await db.execute(select(User.username).where(User.id == m.player2_id))
-    return MatchOut(
-        id=m.id, player1_id=m.player1_id, player2_id=m.player2_id,
-        player1_username=p1.scalar(), player2_username=p2.scalar(),
-        status=m.status, created_at=m.created_at,
+    return await _build_match_out(m, db)
+
+
+# --- Ready Status ---
+@router.post("/{match_id}/ready")
+async def toggle_ready(match_id: int, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Toggle the current player's ready status. When both ready, match goes active."""
+    m = await _get_match(match_id, user.id, db)
+
+    # Get or create ready status for this player
+    result = await db.execute(
+        select(MatchReadyStatus).where(
+            MatchReadyStatus.match_id == match_id,
+            MatchReadyStatus.player_id == user.id,
+        )
     )
+    my_status = result.scalar_one_or_none()
+    if not my_status:
+        my_status = MatchReadyStatus(match_id=match_id, player_id=user.id, is_ready=False)
+        db.add(my_status)
+        await db.flush()
+
+    # Toggle
+    my_status.is_ready = not my_status.is_ready
+    await db.flush()
+
+    # Check if both players are ready
+    other_id = m.player2_id if user.id == m.player1_id else m.player1_id
+    other_ready = await _get_ready_status(match_id, other_id, db)
+
+    if my_status.is_ready and other_ready and m.status == "lobby":
+        m.status = "active"
+        await db.flush()
+
+    return {
+        "is_ready": my_status.is_ready,
+        "other_ready": other_ready,
+        "match_status": m.status,
+    }
 
 
 # --- Pool Links (Watchlists) ---
@@ -146,17 +220,27 @@ async def get_links(match_id: int, user: User = Depends(get_current_user), db: A
         .join(Watchlist, MatchPoolLink.watchlist_id == Watchlist.id)
         .where(MatchPoolLink.match_id == match_id)
     )
-    return [
-        {
+    result = []
+    for link, wl in links.all():
+        # Count movies in this watchlist
+        movie_count_result = await db.execute(
+            select(Movie.id).where(Movie.watchlist_id == wl.id)
+        )
+        movie_count = len(movie_count_result.scalars().all())
+        # Get owner username
+        owner_result = await db.execute(select(User.username).where(User.id == wl.owner_id))
+        owner_username = owner_result.scalar()
+        result.append({
             "id": link.id,
             "watchlist_id": link.watchlist_id,
             "watchlist_name": wl.name,
             "watchlist_icon": wl.icon,
             "user_id": link.user_id,
+            "owner_username": owner_username,
+            "movie_count": movie_count,
             "excludes": link.excludes or [],
-        }
-        for link, wl in links.all()
-    ]
+        })
+    return result
 
 
 @router.post("/{match_id}/links")
@@ -172,6 +256,8 @@ async def link_watchlist(match_id: int, data: dict, user: User = Depends(get_cur
         raise HTTPException(status_code=409, detail="Already linked")
 
     db.add(MatchPoolLink(match_id=match_id, watchlist_id=wl_id, user_id=user.id))
+    # Reset this player's ready status when pool changes
+    await _reset_player_ready(match_id, user.id, db)
     return {"message": "Watchlist linked"}
 
 
@@ -184,6 +270,8 @@ async def unlink_watchlist(match_id: int, watchlist_id: int, user: User = Depend
     link = result.scalar_one_or_none()
     if link:
         await db.delete(link)
+        # Reset this player's ready status when pool changes
+        await _reset_player_ready(match_id, user.id, db)
     return {"message": "Unlinked"}
 
 
@@ -206,6 +294,8 @@ async def toggle_exclude(match_id: int, watchlist_id: int, data: dict, user: Use
         excludes.append(movie_id)
     link.excludes = excludes
     await db.flush()
+    # Reset this player's ready status when pool changes
+    await _reset_player_ready(match_id, user.id, db)
     return {"excludes": link.excludes}
 
 
@@ -257,6 +347,9 @@ async def get_unswiped(match_id: int, user: User = Depends(get_current_user), db
 @router.post("/{match_id}/like")
 async def like_movie(match_id: int, data: MatchLikeCreate, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     m = await _get_match(match_id, user.id, db)
+    if m.status != "active":
+        raise HTTPException(status_code=400, detail="Match is not active yet")
+
     existing = await db.execute(
         select(MatchLike).where(
             MatchLike.match_id == match_id, MatchLike.player_id == user.id, MatchLike.movie_id == data.movie_id
@@ -268,6 +361,8 @@ async def like_movie(match_id: int, data: MatchLikeCreate, user: User = Depends(
     else:
         db.add(MatchLike(match_id=match_id, player_id=user.id, movie_id=data.movie_id, liked=data.liked))
 
+    await db.flush()
+
     if data.liked:
         other_id = m.player2_id if user.id == m.player1_id else m.player1_id
         other_like = await db.execute(
@@ -277,9 +372,24 @@ async def like_movie(match_id: int, data: MatchLikeCreate, user: User = Depends(
             )
         )
         if other_like.scalar_one_or_none():
-            return {"message": "It's a match! 🎉", "is_match": True}
+            return {"message": "It's a match!", "is_match": True}
 
     return {"message": "Vote recorded", "is_match": False}
+
+
+@router.delete("/{match_id}/like/{movie_id}")
+async def undo_like(match_id: int, movie_id: int, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Remove a vote so the movie appears in unswiped again."""
+    await _get_match(match_id, user.id, db)
+    result = await db.execute(
+        select(MatchLike).where(
+            MatchLike.match_id == match_id, MatchLike.player_id == user.id, MatchLike.movie_id == movie_id
+        )
+    )
+    like = result.scalar_one_or_none()
+    if like:
+        await db.delete(like)
+    return {"message": "Vote removed"}
 
 
 @router.get("/{match_id}/matches")
@@ -297,7 +407,13 @@ async def get_matches(match_id: int, user: User = Depends(get_current_user), db:
 
     result = await db.execute(select(Movie).where(Movie.id.in_(common)))
     return [
-        {"id": mv.id, "title": mv.title, "poster_url": mv.poster_url, "tmdb_id": mv.tmdb_id, "year": mv.year}
+        {
+            "id": mv.id, "title": mv.title, "poster_url": mv.poster_url,
+            "tmdb_id": mv.tmdb_id, "media_type": mv.media_type, "year": mv.year,
+            "vote_average": mv.vote_average, "overview": mv.overview,
+            "backdrop_path": mv.backdrop_path, "genres": mv.genres,
+            "status": mv.status, "watchlist_id": mv.watchlist_id,
+        }
         for mv in result.scalars().all()
     ]
 

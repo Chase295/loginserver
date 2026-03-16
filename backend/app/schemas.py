@@ -169,6 +169,8 @@ class MatchOut(BaseModel):
     player2_id: int
     player1_username: str | None = None
     player2_username: str | None = None
+    player1_ready: bool = False
+    player2_ready: bool = False
     status: str
     created_at: datetime
 
