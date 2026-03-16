@@ -91,9 +91,20 @@ async def jellyfin_status(tmdb_id: int, media_type: str = Query("movie"), user: 
                 entry = {"server_name": srv.name, **item}
                 # Fetch MediaStreams for audio/subtitle languages
                 try:
+                    # For TV: get first episode's streams
+                    target_id = item["id"]
+                    if media_type == "tv":
+                        try:
+                            eps_data = await jf_service._request(srv.url, srv.token, "GET", f"/Shows/{item['id']}/Episodes", {"UserId": srv.jellyfin_user_id, "Limit": 1, "Fields": "MediaStreams"})
+                            ep_items = eps_data.get("Items", [])
+                            if ep_items:
+                                target_id = ep_items[0].get("Id", target_id)
+                        except Exception:
+                            pass
+
                     item_detail = await jf_service._request(
                         srv.url, srv.token, "GET",
-                        f"/Users/{srv.jellyfin_user_id}/Items/{item['id']}",
+                        f"/Users/{srv.jellyfin_user_id}/Items/{target_id}",
                         params={"Fields": "MediaStreams"},
                     )
                     audio_langs: list[str] = []

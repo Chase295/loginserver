@@ -267,19 +267,34 @@ async def plex_status(tmdb_id: int, media_type: str = Query("movie"), user: User
                 "viewCount": item.get("viewCount", 0),
                 "lastViewedAt": item.get("lastViewedAt"),
             }
-            # Get audio/subtitle stream languages from metadata
+            # Get audio/subtitle stream languages
             if item.get("ratingKey"):
                 try:
                     from ..services.plex import _request
-                    stream_data = await asyncio.wait_for(
-                        _request(srv["url"], token, f"/library/metadata/{item['ratingKey']}", {"includeStreams": 1}),
-                        timeout=5,
-                    )
-                    metadata_items = stream_data.get("MediaContainer", {}).get("Metadata", [])
                     audio_langs: list[str] = []
                     sub_langs: list[str] = []
-                    if metadata_items:
-                        for media_entry in metadata_items[0].get("Media", []):
+
+                    # For TV: get first episode's streams (show level has no streams)
+                    target_key = item["ratingKey"]
+                    if media_type == "tv":
+                        try:
+                            seasons = await asyncio.wait_for(_request(srv["url"], token, f"/library/metadata/{item['ratingKey']}/children"), timeout=3)
+                            for s in seasons.get("MediaContainer", {}).get("Metadata", []):
+                                if s.get("index", 0) > 0:
+                                    eps = await asyncio.wait_for(_request(srv["url"], token, f"/library/metadata/{s['ratingKey']}/children"), timeout=3)
+                                    ep_list = eps.get("MediaContainer", {}).get("Metadata", [])
+                                    if ep_list:
+                                        target_key = ep_list[0].get("ratingKey", target_key)
+                                    break
+                        except Exception:
+                            pass
+
+                    stream_data = await asyncio.wait_for(
+                        _request(srv["url"], token, f"/library/metadata/{target_key}", {"includeStreams": 1}),
+                        timeout=5,
+                    )
+                    for meta_item in stream_data.get("MediaContainer", {}).get("Metadata", []):
+                        for media_entry in meta_item.get("Media", []):
                             for part in media_entry.get("Part", []):
                                 for stream in part.get("Stream", []):
                                     lang = stream.get("language") or stream.get("languageCode") or stream.get("languageTag")
